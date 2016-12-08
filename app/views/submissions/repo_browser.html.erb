@@ -62,6 +62,18 @@
         (<span id='current_revision_timestamp_display'>
            <%= l(@revision_timestamp, format: :long_date) %>
         </span>)
+        <br>
+        <%= t('browse_submissions.currently_collected') %>
+        <% if @grouping.is_collected %>
+           <% if @last_submission %>
+               <%= "#" +  @last_submission.revision_number.to_s +
+          " (" + l(@last_submission.revision_timestamp, format: :long_date) + " )"  %>
+           <% else %>
+               <%= t('browse_submissions.no_rev_before_deadline') %>
+           <% end %>
+        <% else %>
+           <%= t('none') %>
+        <% end %>
     </h2>
 
     <div id='directory_selector'>
@@ -86,13 +98,17 @@
 
     <%= form_tag manually_collect_and_begin_grading_assignment_submission_path(
                    id: @grouping.id,
-                   assignment_id: @assignment.id),
-                   remote: true do %>
+                   assignment_id: @assignment.id) do %>
       <%= hidden_field_tag 'current_revision_number', @revision_number %>
+      <p>
+        <%= check_box_tag 'apply_late_penalty' %>
+        <%= label_tag 'apply_late_penalty',
+                      t('collect_submissions.apply_late_penalty') %>
+      </p>
       <input type='submit'
              value='<%= t('browse_submissions.collect_and_grab') %>'
              onclick="if (!confirm('<%=t(:collect_and_grade_overwrite_warning)%>')) return false;
-                      $('progress_text').update('<%=t('stopping_collection_process')%>');
+                      jQuery('#progress_text').html('<%=t('stopping_collection_process')%>');
                       return true;"
              name='commit'>
       <%= link_to t('browse_submissions.download_all_files'),
@@ -107,15 +123,3 @@
 
   <div id='files_table'></div>
 </div>
-
-<script>
-  new PeriodicalExecuter(function() {
-    new Ajax.Request('<%= update_converted_pdfs_assignment_submissions_path(@assignment, grouping_id: @grouping.id) %>',
-      {
-        asynchronous:true,
-        evalScripts:true,
-        parameters:'authenticity_token=' + AUTH_TOKEN
-      }
-    )
-  }, 3)
-</script>

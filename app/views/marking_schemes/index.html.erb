@@ -1,0 +1,20 @@
+<%= content_for :head do %>
+  <%= render partial: 'marking_schemes_table', formats: [:'js.jsx'], handlers: [:erb] %>
+<% end %>
+
+<% content_for :title, t('marking_schemes.title') %>
+
+<% @heading_buttons = [
+    { link_text: t('marking_schemes.add_new'),
+      link_path: new_marking_scheme_path,
+      html_options: { remote: true } },
+    { link_text: t('course_summaries.title'),
+      link_path: course_summaries_path }
+] %>
+
+<div class='wrapper'>
+  <div id='marking_schemes_table'></div>
+</div>
+
+<div class='edit-ms'></div>
+<div class='new-ms'></div>

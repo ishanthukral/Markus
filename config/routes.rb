@@ -1,16 +1,28 @@
 Markus::Application.routes.draw do
+  resources :key_pairs
+
   # Install the default routes as the lowest priority.
   root controller: 'main', action: 'login', via: [:post, :get]
 
   # optional path scope (denoted by the parentheses)
-  scope "(:locale)", locale: /en|fr|pt/  do
+  scope '(:locale)', locale: /en|es|fr|pt/  do
     # API routes
     namespace :api do
       resources :users, except: [:new, :edit]
       resources :assignments, except: [:new, :edit] do
         resources :groups, except: [:new, :edit] do
+          collection do
+            get 'group_ids_by_name'
+          end
           resources :submission_downloads, except: [:new, :edit]
-          resources :test_results, except: [:new, :edit]
+          resources :feedback_files, except: [:new, :edit]
+          resources :test_script_results, except: [:new, :edit] do
+            resources :test_results, except: [:new, :edit]
+          end
+          member do
+            put 'update_marks'
+            put 'update_marking_state'
+          end
         end
       end
       resources :main_api
@@ -25,8 +37,6 @@ Markus::Application.routes.draw do
     resources :assignments do
 
       collection do
-        get 'download_csv_grades_report'
-        post 'update_group_properties_on_persist'
         get 'delete_rejected'
         post 'update_collected_submissions'
         get 'download_assignment_list'
@@ -36,15 +46,18 @@ Markus::Application.routes.draw do
       member do
         get 'refresh_graph'
         get 'student_interface'
-        get 'update_group_properties_on_persist'
         post 'invite_member'
         get 'creategroup'
         get 'join_group'
         get 'deletegroup'
         get 'decline_invitation'
         post 'disinvite_member'
-        get 'render_test_result'
+        get 'render_feedback_file'
         get 'view_summary'
+        get 'populate_file_manager'
+        post 'update_files'
+        get 'download'
+        get 'peer_review'
       end
 
       resources :tags do
@@ -61,29 +74,11 @@ Markus::Application.routes.draw do
         end
       end
 
-      resources :rubrics do
-        member do
-          delete 'destroy'
-        end
-
+      resources :criteria do
         collection do
           post 'update_positions'
-          post 'csv_upload'
-          post 'yml_upload'
-          get 'download_csv'
-          get 'download_yml'
-        end
-      end
-
-      resources :flexible_criteria do
-        member do
-          delete 'destroy'
-        end
-
-        collection do
-          post 'upload'
-          post 'update_positions'
-          get 'download'
+          post 'upload_yml'
+          get  'download_yml'
         end
       end
 
@@ -102,13 +97,12 @@ Markus::Application.routes.draw do
 
         member do
           post 'rename_group'
-          get 'rename_group_dialog'
         end
 
         collection do
           get 'populate'
           get 'add_group'
-          get 'use_another_assignment_groups'
+          post 'use_another_assignment_groups'
           get 'manage'
           post 'csv_upload'
           get 'add_csv_group'
@@ -126,26 +120,29 @@ Markus::Application.routes.draw do
 
       resources :submissions do
         collection do
+          get 'populate_file_manager_react'
           get 'populate_submissions_table'
+          get 'populate_peer_submissions_table'
           get 'file_manager'
           get 'browse'
           post 'populate_file_manager'
-          get 'collect_all_submissions'
+          post 'collect_submissions'
+          get 'uncollect_all_submissions'
+          post 'run_tests'
           get 'download_simple_csv_report'
           get 'download_detailed_csv_report'
           get 'download_svn_export_list'
-          get 'download_svn_export_commands'
+          get 'download_svn_checkout_commands'
           get 'download_svn_repo_list'
-          get 'collect_ta_submissions'
           post 'update_submissions'
-          post 'update_converted_pdfs'
           get 'updated_files'
           get 'replace_files'
           get 'delete_files'
           post 'update_files'
-          post 'server_time'
+          get 'server_time'
           get 'download'
           get 'download_groupings_files'
+          get 'check_collect_status'
         end
 
         member do
@@ -169,7 +166,7 @@ Markus::Application.routes.draw do
             get 'download'
             post 'download'
             get 'download_zip'
-            get 'cancel_remark_request'
+            delete 'cancel_remark_request'
             get 'codeviewer'
             post 'codeviewer'
             post 'add_extra_mark'
@@ -177,15 +174,15 @@ Markus::Application.routes.draw do
             get 'next_grouping'
             post 'remove_extra_mark'
             post 'set_released_to_students'
-            put 'update_overall_comment'
-            post 'update_overall_remark_comment'
-            post 'update_marking_state'
-            get 'update_remark_request'
+            post 'update_overall_comment'
+            post 'toggle_marking_state'
+            patch 'update_remark_request'
             get 'update_positions'
             post 'update_mark'
             get 'view_marks'
             post 'add_tag'
             post 'remove_tag'
+            get 'run_tests'
           end
         end
       end
@@ -193,6 +190,39 @@ Markus::Application.routes.draw do
       resources :summaries, only: :index do
         collection do
           get 'populate'
+        end
+      end
+
+      resources :results, only: [:edit], path: '/peer_reviews' do
+        collection do
+          get 'download'
+          post 'update_mark'
+        end
+
+        member do
+          get 'view_marks'
+          post 'add_extra_mark'
+          get 'codeviewer'
+          post 'codeviewer'
+          get 'next_grouping'
+          post 'toggle_marking_state'
+          post 'update_mark'
+          post 'update_overall_comment'
+          patch 'update_remark_request'
+        end
+      end
+
+      resources :peer_reviews, only: :index do
+        collection do
+          get 'populate'
+          post 'assign_groups'
+          get 'download_reviewer_reviewee_mapping'
+          post 'csv_upload_handler'
+          get 'show_reviews'
+        end
+
+        member do
+          get 'show_result'
         end
       end
 
@@ -214,13 +244,12 @@ Markus::Application.routes.draw do
           get 'upload_dialog'
           get 'unassign'
           post 'global_actions'
+          get 'grader_summary'
         end
       end
 
       resources :annotation_categories do
         member do
-          get 'get_annotations'
-          delete 'delete_annotation_category'
           delete 'delete_annotation_text'
           get 'add_annotation_text'
           post 'add_annotation_text'
@@ -229,16 +258,13 @@ Markus::Application.routes.draw do
 
         collection do
           post 'update_positions'
-          get 'add_annotation_category'
           post 'csv_upload'
-          get 'delete_annotation_category'
           get 'download'
           post 'yml_upload'
-          post 'add_annotation_category'
-          post 'update_annotation_category'
           get 'add_annotation_text'
           post 'delete_annotation_text'
           post 'update_annotation'
+          get 'find_annotation_text'
         end
       end
     end
@@ -253,8 +279,6 @@ Markus::Application.routes.draw do
         get 'populate_grades_table'
         get 'get_mark_columns'
         get 'grades'
-        get 'g_table_paginate'
-        post 'g_table_paginate'
         get 'csv_download'
         post 'csv_upload'
         post 'update_grade'
@@ -305,14 +329,29 @@ Markus::Application.routes.draw do
       end
     end
 
+    resources :key_pairs
+
+    resources :course_summaries do
+      collection do
+        get 'populate'
+        get 'get_marking_scheme_details'
+        get 'download_csv_grades_report'
+      end
+    end
+
+    resources :marking_schemes do
+      collection do
+        get 'populate'
+      end
+    end
+
     resources :sections
 
     resources :annotations do
       collection do
         post 'add_existing_annotation'
-        put 'update_annotation'
-        post 'update_comment'
-        delete 'destroy'
+        patch 'update_annotation'
+        delete '/' => 'annotations#destroy'
       end
     end
 
@@ -337,6 +376,9 @@ Markus::Application.routes.draw do
         post 'upload_ta_list'
         get 'download_ta_list'
       end
+      member do
+        get 'refresh_graph'
+      end
     end
 
     resources :main do
@@ -353,14 +395,21 @@ Markus::Application.routes.draw do
     end
   end
 
+  resources :automated_tests do
+    member do
+      get 'student_interface'
+      post 'execute_test_run'
+    end
+  end
+
+  resources :job_messages, only: %w(show), param: :job_id
+
   match 'main', controller: 'main', action: 'index', via: :post
   match 'main/about', controller: 'main', action: 'about', via: :post
   match 'main/logout', controller: 'main', action: 'logout', via: :post
 
-  # TODO: this should be via: :all, but does not seem to work with Rails 3
   # Return a 404 when no route is match
-
   unless Rails.env.test?
-    match '*path', controller: 'main', action: 'page_not_found', via: :get
+    match '*path', controller: 'main', action: 'page_not_found', via: :all
   end
 end

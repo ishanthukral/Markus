@@ -16,7 +16,6 @@ require File.expand_path(File.join(File.dirname(__FILE__), '..', 'test_helper'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'blueprints', 'blueprints'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'blueprints', 'helper'))
 require 'shoulda'
-require 'mocha/setup'
 
 class StudentTest < ActiveSupport::TestCase
 
@@ -76,7 +75,7 @@ class StudentTest < ActiveSupport::TestCase
       end
 
       should 'have no duplicates' do
-        new_user = Student.new({:user_name => 'exist_student', :first_name => 'Nelle', :last_name => 'Varoquaux'})
+        new_user = Student.new({user_name: 'exist_student', first_name: 'Nelle', last_name: 'Varoquaux'})
 
         assert new_user.save, 'Could not create a new student'
 
@@ -155,14 +154,14 @@ class StudentTest < ActiveSupport::TestCase
     context 'with duplicates and sections and update of a section' do
 
       setup do
-        @section = Section.create(:name => 'SECTION0')
+        @section = Section.create(name: 'SECTION0')
       end
 
       should 'have no duplicates' do
-        new_user = Student.new(:user_name => 'exist_student',
-                               :first_name => 'Nelle',
-                               :last_name => 'Varoquaux',
-                               :section => @section)
+        new_user = Student.new(user_name: 'exist_student',
+                               first_name: 'Nelle',
+                               last_name: 'Varoquaux',
+                               section: @section)
 
         assert new_user.save, 'Could not create a new student'
 
@@ -200,9 +199,9 @@ class StudentTest < ActiveSupport::TestCase
 
   context 'A pair of students in the same group' do
     setup do
-      @membership1 = StudentMembership.make(:membership_status => StudentMembership::STATUSES[:inviter])
+      @membership1 = StudentMembership.make(membership_status: StudentMembership::STATUSES[:inviter])
       @grouping = @membership1.grouping
-      @membership2 = StudentMembership.make({:grouping => @grouping, :membership_status => StudentMembership::STATUSES[:accepted]})
+      @membership2 = StudentMembership.make({grouping: @grouping, membership_status: StudentMembership::STATUSES[:accepted]})
       @student1 = @membership1.user
       @student2 = @membership2.user
 
@@ -219,7 +218,7 @@ class StudentTest < ActiveSupport::TestCase
 
     should 'hide students and have the repo remove them' do
       # Mocks to enter into the if
-      Grouping.any_instance.stubs(:repository_external_commits_only?).returns(true)
+      Assignment.any_instance.stubs(:vcs_submit).returns(true)
       Grouping.any_instance.stubs(:is_valid?).returns(true)
 
       # Mock the repository and expect :remove_user with the student's user_name
@@ -234,7 +233,7 @@ class StudentTest < ActiveSupport::TestCase
 
     should 'not error when user is not found on hide and remove' do
       # Mocks to enter into the if that leads to the call to remove the student
-      Grouping.any_instance.stubs(:repository_external_commits_only?).returns(true)
+      Assignment.any_instance.stubs(:vcs_submit).returns(true)
       Grouping.any_instance.stubs(:is_valid?).returns(true)
 
       # Mock the repository and raise Repository::UserNotFound
@@ -246,8 +245,8 @@ class StudentTest < ActiveSupport::TestCase
       Student.hide_students(@student_id_list)
     end
 
-    [{:type => 'negative', :grace_credits => '-10', :expected => 0 },
-     {:type => 'positive', :grace_credits => '10', :expected => 15 }].each do |item|
+    [{type: 'negative', grace_credits: '-10', expected: 0 },
+     {type: 'positive', grace_credits: '10', expected: 15 }].each do |item|
       should "not error when given #{item[:type]} grace credits" do
         assert Student.give_grace_credits(@student_id_list, item[:grace_credits])
 
@@ -265,9 +264,9 @@ class StudentTest < ActiveSupport::TestCase
       @student1 = Student.make(:hidden)
       @student2 = Student.make(:hidden)
 
-      @membership1 = StudentMembership.make({:membership_status => StudentMembership::STATUSES[:inviter], :user => @student1})
+      @membership1 = StudentMembership.make({membership_status: StudentMembership::STATUSES[:inviter], user: @student1})
       @grouping = @membership1.grouping
-      @membership2 = StudentMembership.make({:grouping => @grouping, :membership_status => StudentMembership::STATUSES[:accepted], :user => @student2})
+      @membership2 = StudentMembership.make({grouping: @grouping, membership_status: StudentMembership::STATUSES[:accepted], user: @student2})
 
       @student_id_list = [@student1.id, @student2.id]
     end
@@ -283,7 +282,7 @@ class StudentTest < ActiveSupport::TestCase
 
     should 'unhide without error when users already exists in repo' do
       # Mocks to enter into the if
-      Grouping.any_instance.stubs(:repository_external_commits_only?).returns(true)
+      Assignment.any_instance.stubs(:vcs_submit).returns(true)
       Grouping.any_instance.stubs(:is_valid?).returns(true)
 
       # Mock the repository and raise Repository::UserNotFound
@@ -321,7 +320,7 @@ class StudentTest < ActiveSupport::TestCase
 
     context 'with an assignment' do
       setup do
-        @assignment = Assignment.make(:group_name_autogenerated => false)
+        @assignment = Assignment.make(group_name_autogenerated: false)
       end
 
       should 'not return nil on call to memberships_for' do
@@ -343,14 +342,14 @@ class StudentTest < ActiveSupport::TestCase
 
       should 'correctly return if it has accepted groupings' do
         assert !@student.has_accepted_grouping_for?(@assignment.id), 'Should return no grouping for this assignment'
-        membership = StudentMembership.make({:user => @student, :grouping => Grouping.make(:assignment => @assignment),:membership_status => StudentMembership::STATUSES[:inviter]})
+        membership = StudentMembership.make({user: @student, grouping: Grouping.make(assignment: @assignment),membership_status: StudentMembership::STATUSES[:inviter]})
         assert @student.has_accepted_grouping_for?(@assignment.id)
       end
 
       should 'correctly return the accepted grouping' do
         assert_nil @student.accepted_grouping_for(@assignment.id), 'Should return no grouping for this assignment'
-        grouping = Grouping.make(:assignment => @assignment)
-        membership = StudentMembership.make({:user => @student, :grouping => grouping,:membership_status => StudentMembership::STATUSES[:inviter]})
+        grouping = Grouping.make(assignment: @assignment)
+        membership = StudentMembership.make({user: @student, grouping: grouping,membership_status: StudentMembership::STATUSES[:inviter]})
         assert_equal(grouping, @student.accepted_grouping_for(@assignment.id))
       end
 
@@ -384,7 +383,7 @@ class StudentTest < ActiveSupport::TestCase
 
     context 'with a group name autogenerated assignment' do
       setup do
-        @assignment = Assignment.make(:group_name_autogenerated => true)
+        @assignment = Assignment.make(group_name_autogenerated: true)
         assert @student.create_autogenerated_name_group(@assignment.id)
       end
 
@@ -399,7 +398,7 @@ class StudentTest < ActiveSupport::TestCase
 
     context 'with a pending membership' do
       setup do
-        @membership = StudentMembership.make({:user => @student})
+        @membership = StudentMembership.make({user: @student})
       end
 
 
@@ -415,7 +414,7 @@ class StudentTest < ActiveSupport::TestCase
 
         should 'reject all other pending memberships upon joining a group' do
           grouping = @membership.grouping
-          membership2 = StudentMembership.make(:grouping => Grouping.make(:assignment => @assignment), :user => @student)
+          membership2 = StudentMembership.make(grouping: Grouping.make(assignment: @assignment), user: @student)
 
           Grouping.any_instance.expects(:update_repository_permissions).at_least(1)
 
@@ -429,7 +428,7 @@ class StudentTest < ActiveSupport::TestCase
         end
 
         should 'have pending memberships after their creation.' do
-          membership2 = StudentMembership.make(:grouping => Grouping.make(:assignment => @assignment), :user => @student)
+          membership2 = StudentMembership.make(grouping: Grouping.make(assignment: @assignment), user: @student)
 
           pending_memberships = @student.pending_memberships_for(@assignment.id)
 
@@ -448,7 +447,8 @@ class StudentTest < ActiveSupport::TestCase
           end
 
           should 'create the group' do
-            assert Group.first(:conditions => {:group_name => @student.user_name}), 'the group has not been created'
+            assert Group.where(group_name: @student.user_name).first,
+                   'the group has not been created'
           end
 
           should 'have their repo name equal their user name' do
@@ -467,8 +467,8 @@ class StudentTest < ActiveSupport::TestCase
         context 'working alone but has an existing group' do
           setup do
             @group = Group.make
-            @grouping = Grouping.make({:group => @group, :assignment => @assignment})
-            @membership2 = StudentMembership.make({:user => @student, :membership_status => StudentMembership::STATUSES[:inviter], :grouping => @grouping})
+            @grouping = Grouping.make({group: @group, assignment: @assignment})
+            @membership2 = StudentMembership.make({user: @student, membership_status: StudentMembership::STATUSES[:inviter], grouping: @grouping})
           end
 
           should 'work' do
@@ -485,8 +485,8 @@ class StudentTest < ActiveSupport::TestCase
       end
 
       should 'return normally when over deducted' do
-        deduction1 = GracePeriodDeduction.make(:membership => StudentMembership.make(:user => @student))
-        deduction2 = GracePeriodDeduction.make(:membership => deduction1.membership, :deduction => 10)
+        deduction1 = GracePeriodDeduction.make(membership: StudentMembership.make(user: @student))
+        deduction2 = GracePeriodDeduction.make(membership: deduction1.membership, deduction: 10)
         assert_equal(-25, @student.remaining_grace_credits)
       end
     end
@@ -496,13 +496,13 @@ class StudentTest < ActiveSupport::TestCase
     end
 
     should "assert student doesn't have a section" do
-      student = Student.make(:section => nil)
+      student = Student.make(section: nil)
       assert !student.has_section?
     end
 
     should 'update the section of the students in the list' do
-      student1 = Student.make(:section => nil)
-      student2 = Student.make(:section => nil)
+      student1 = Student.make(section: nil)
+      student2 = Student.make(section: nil)
       students_ids = [student1.id, student2.id]
       section_id = Section.make.id
       Student.update_section(students_ids, section_id)

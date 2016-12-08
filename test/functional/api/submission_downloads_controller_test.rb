@@ -4,7 +4,6 @@ require File.join(File.dirname(__FILE__), '..', '..', 'blueprints', 'helper')
 require File.join(File.dirname(__FILE__), '..', 'authenticated_controller_test')
 require 'shoulda'
 require 'base64'
-require 'mocha/setup'
 require 'stringio'
 
 class Api::SubmissionDownloadsControllerTest < ActionController::TestCase
@@ -19,7 +18,7 @@ class Api::SubmissionDownloadsControllerTest < ActionController::TestCase
 
     context '/index' do
       setup do
-        get 'index', :assignment_id => '1', :group_id => '1'
+        get 'index', assignment_id: '1', group_id: '1'
       end
 
       should 'fail to authenticate the GET request' do
@@ -29,7 +28,7 @@ class Api::SubmissionDownloadsControllerTest < ActionController::TestCase
 
     context '/show' do
       setup do
-        get 'show', :assignment_id => '1', :group_id => '1', :id => '1'
+        get 'show', assignment_id: '1', group_id: '1', id: '1'
       end
 
       should 'fail to authenticate the GET request' do
@@ -39,7 +38,7 @@ class Api::SubmissionDownloadsControllerTest < ActionController::TestCase
 
     context '/create' do
       setup do
-        post 'create', :assignment_id => '1', :group_id => '1'
+        post 'create', assignment_id: '1', group_id: '1'
       end
 
       should 'fail to authenticate the GET request' do
@@ -49,7 +48,7 @@ class Api::SubmissionDownloadsControllerTest < ActionController::TestCase
 
     context '/update' do
       setup do
-        put 'update', :assignment_id => '1', :group_id => '1', :id => '1'
+        put 'update', assignment_id: '1', group_id: '1', id: '1'
       end
 
       should 'fail to authenticate the GET request' do
@@ -59,7 +58,7 @@ class Api::SubmissionDownloadsControllerTest < ActionController::TestCase
 
     context '/destroy' do
       setup do
-        delete 'destroy', :assignment_id => '1', :group_id => '1', :id => '1'
+        delete 'destroy', assignment_id: '1', group_id: '1', id: '1'
       end
 
       should 'fail to authenticate the GET request' do
@@ -91,14 +90,14 @@ class Api::SubmissionDownloadsControllerTest < ActionController::TestCase
       # Create students, groupings, assignments, etc for testing
       # Generates files, uploads them to the repo, and creates a submission as well
       setup do
-        @assignment = Assignment.make(:allow_web_submits => true, :group_min => 1)
+        @assignment = Assignment.make(allow_web_submits: true, group_min: 1)
         @assignment2 = Assignment.make
 
         @group = Group.make
         @student = Student.make
-        @grouping = Grouping.make(:group => @group, :assignment => @assignment)
-        @membership = StudentMembership.make(:user => @student,
-          :membership_status => 'inviter', :grouping => @grouping)
+        @grouping = Grouping.make(group: @group, assignment: @assignment)
+        @membership = StudentMembership.make(user: @student,
+          membership_status: 'inviter', grouping: @grouping)
         @student = @membership.user
 
         # Upload the two java files for testing
@@ -134,12 +133,12 @@ class Api::SubmissionDownloadsControllerTest < ActionController::TestCase
 
       context '/index' do
         should "return a zip containing the two files if filename isn't used" do
-          get 'index', :assignment_id => @assignment.id.to_s, :group_id =>
+          get 'index', assignment_id: @assignment.id.to_s, group_id:
             @group.id.to_s
           output = StringIO.new
           output.binmode
           output << @response.body
-          File.open('tmp/sub_test.zip', 'w') {|f| f.write(output.string)}
+          File.open('tmp/sub_test.zip', 'wb') {|f| f.write(output.string)}
           Zip::File.open('tmp/sub_test.zip') do |zipfile|
             assert_not_nil zipfile.find_entry(@file1_path)
             assert_not_nil zipfile.find_entry(@file2_path)
@@ -149,30 +148,30 @@ class Api::SubmissionDownloadsControllerTest < ActionController::TestCase
         end
 
         should 'return the requested file if filename is used' do
-          get 'index', :assignment_id => @assignment.id.to_s, :group_id =>
-            @group.id.to_s, :filename => @file1_name
+          get 'index', assignment_id: @assignment.id.to_s, group_id:
+            @group.id.to_s, filename: @file1_name
           assert_response(:success)
           assert_equal(@file1_content, @response.body)
         end
 
         should "return a 422 if the file doesn't exist" do
-          get 'index', :assignment_id => @assignment.id.to_s, :group_id =>
-            @group.id.to_s, :filename => 'invalid_file_name'
+          get 'index', assignment_id: @assignment.id.to_s, group_id:
+            @group.id.to_s, filename: 'invalid_file_name'
           assert_response 422
         end
 
         should "return a 404 if the group doesn't exist" do
-          get 'index', :assignment_id => @assignment.id.to_s, :group_id => '9999'
+          get 'index', assignment_id: @assignment.id.to_s, group_id: '9999'
           assert_response 404
         end
 
         should "return a 404 if the assignment doesn't exist" do
-          get 'index', :assignment_id => '9999', :group_id => @group.id.to_s
+          get 'index', assignment_id: '9999', group_id: @group.id.to_s
           assert_response 404
         end
 
         should "return a 404 if a submission doesn't exist" do
-          get 'index', :assignment_id => @assignment2.id.to_s, :group_id =>
+          get 'index', assignment_id: @assignment2.id.to_s, group_id:
             @group.id.to_s
           assert_response 404
         end
@@ -181,22 +180,22 @@ class Api::SubmissionDownloadsControllerTest < ActionController::TestCase
       # Make sure the other routes don't work
       context "testing that the other routes don't exist" do
         should "show that 'show' doesn't exist" do
-          get 'show', :assignment_id => '1', :group_id => '1', :id => '1'
+          get 'show', assignment_id: '1', group_id: '1', id: '1'
           assert_response :missing
         end
 
         should "show that create doesn't exist" do
-          post 'create', :assignment_id => '1', :group_id => '1'
+          post 'create', assignment_id: '1', group_id: '1'
           assert_response :missing
         end
 
         should "show that update doesn't exist" do
-          put 'update', :assignment_id => '1', :group_id => '1', :id => '1'
+          put 'update', assignment_id: '1', group_id: '1', id: '1'
           assert_response :missing
         end
 
         should "show that delete doesn't exist" do
-          delete 'update', :assignment_id => '1', :group_id => '1', :id => '1'
+          delete 'update', assignment_id: '1', group_id: '1', id: '1'
           assert_response :missing
         end
       end

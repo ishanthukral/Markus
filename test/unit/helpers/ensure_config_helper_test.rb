@@ -1,7 +1,6 @@
 require File.join(File.dirname(__FILE__), '..', '..', 'test_helper')
 require 'shoulda'
 require 'fileutils'
-require 'mocha/setup'
 include EnsureConfigHelper
 include MarkusConfigurator
 
@@ -16,7 +15,7 @@ class EnsureConfigHelperTest < ActiveSupport::TestCase
   context 'A configured default language with language file not present in config/locales' do
     should 'raise an exception' do
       assert_raise RuntimeError do
-        EnsureConfigHelper.check_configured_default_language('es')
+        EnsureConfigHelper.check_configured_default_language('no')
       end
     end
   end

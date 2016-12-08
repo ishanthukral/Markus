@@ -11,20 +11,24 @@ class User < ActiveRecord::Base
   before_validation :strip_name
 
   # Group relationships
-  has_many :memberships
+  has_many :memberships, dependent: :delete_all
   has_many :grade_entry_students
   has_many :groupings, through: :memberships
   has_many :notes, as: :noteable, dependent: :destroy
-  has_many :accepted_memberships, class_name: 'Membership', conditions: {membership_status: [StudentMembership::STATUSES[:accepted], StudentMembership::STATUSES[:inviter]]}
+  has_many :accepted_memberships,
+           -> { where membership_status: [StudentMembership::STATUSES[:accepted], StudentMembership::STATUSES[:inviter]] },
+           class_name: 'Membership'
+  has_many :annotations, as: :creator
 
   validates_presence_of     :user_name, :last_name, :first_name
   validates_uniqueness_of   :user_name
 
-  validates_format_of       :type,          with: /Student|Admin|Ta/
+  validates_format_of       :type,          with: /Student|Admin|Ta|TestServer/
   # role constants
   STUDENT = 'Student'
   ADMIN = 'Admin'
   TA = 'Ta'
+  TEST_SERVER = 'TestServer'
 
   # Authentication constants to be used as return values
   # see self.authenticated? and main_controller for details
@@ -34,6 +38,7 @@ class User < ActiveRecord::Base
   AUTHENTICATE_ERROR =        3   # generic/unknown error
   AUTHENTICATE_BAD_CHAR =     4   # invalid character in username/password
   AUTHENTICATE_BAD_PLATFORM = 5   # external authentication works for *NIX platforms only
+  AUTHENTICATE_CUSTOM_MESSAGE = 6 # custom validate code for custom message
 
   # Verifies if user is allowed to enter MarkUs
   # Returns user object representing the user with the given login.
@@ -69,10 +74,14 @@ class User < ActiveRecord::Base
       #  1 means no such user
       #  2 means bad password
       #  3 is used for other error exits
-      pipe = IO.popen(MarkusConfigurator.markus_config_validate_file, 'w+')
+      pipe = IO.popen("'#{MarkusConfigurator.markus_config_validate_file}'", 'w+') # quotes to avoid choking on spaces
       pipe.puts("#{login}\n#{password}") # write to stdin of markus_config_validate
       pipe.close
       m_logger = MarkusLogger.instance
+      if (defined? VALIDATE_CUSTOM_EXIT_STATUS) && $?.exitstatus == VALIDATE_CUSTOM_EXIT_STATUS
+        m_logger.log("Login failed. Reason: Custom exit status.", MarkusLogger::ERROR)
+        return AUTHENTICATE_CUSTOM_MESSAGE
+      end
       case $?.exitstatus
         when 0
           m_logger.log("User '#{login}' logged in.", MarkusLogger::INFO)
@@ -112,6 +121,10 @@ class User < ActiveRecord::Base
     self.class == Student
   end
 
+  def test_server?
+    self.class == TestServer
+  end
+
   # Submission helper methods -------------------------------------------------
 
   def submission_for(aid)
@@ -120,25 +133,35 @@ class User < ActiveRecord::Base
     grouping.current_submission_used
   end
 
-  # Classlist parsing --------------------------------------------------------
-  def self.generate_csv_list(user_list)
-     file_out = CSV.generate do |csv|
-       user_list.each do |user|
-         # csv format is user_name,last_name,first_name
-         # We check for user's section
-         # If the user has a section, we had it to the CSV
-         if !user.student? or user.section.nil?
-           user_array = [user.user_name,user.last_name,user.first_name]
-         else
-           user_array = [user.user_name,user.last_name,user.first_name, user.section.name]
-         end
-         csv << user_array
-       end
-     end
-     file_out
+  def grouping_for(aid)
+    groupings.find {|g| g.assignment_id == aid}
+  end
+
+  def is_a_reviewer?(assignment)
+    is_a?(Student) && assignment.is_peer_review?
+  end
+
+  def is_reviewer_for?(assignment, result)
+    # aid is the peer review assignment id, and result_id
+    # is the peer review result
+    if assignment.nil?
+      return false
+    end
+    group =  grouping_for(Integer(assignment.id))
+    if group.nil?
+      return false
+    end
+    prs = PeerReview.where(reviewer_id: group.id)
+    if prs.first.nil?
+      return false
+    end
+    pr = prs.find {|p| p.result_id == Integer(result.id)}
+
+    is_a?(Student) && !pr.nil?
   end
 
   def self.upload_user_list(user_class, user_list, encoding)
+    max_invalid_lines = 10
     num_update = 0
     result = {}
     result[:invalid_lines] = []  # store lines that were not processed
@@ -153,11 +176,15 @@ class User < ActiveRecord::Base
           # don't know how to fetch line so we concat given array
           next if CSV.generate_line(row).strip.empty?
           if processed_users.include?(row[0])
-            result[:invalid_lines] = I18n.t('csv_upload_user_duplicate',
-                                            {user_name: row[0]})
+            if result[:invalid_lines].count < max_invalid_lines
+              result[:invalid_lines] << I18n.t('csv_upload_user_duplicate',
+                                               { user_name: row[0] })
+            end
           else
             if User.add_user(user_class, row).nil?
-              result[:invalid_lines] << row.join(',')
+              if result[:invalid_lines].count < max_invalid_lines
+                result[:invalid_lines] << row.join(',')
+              end
             else
               num_update += 1
               processed_users.push(row[0])
@@ -183,7 +210,7 @@ class User < ActiveRecord::Base
       if key == :section_name
         if val
           # check if the section already exist
-          section = Section.find_or_create_by_name(val)
+          section = Section.find_or_create_by(name: val)
           user_attributes['section_id'] = section.id
         end
       else
@@ -192,24 +219,12 @@ class User < ActiveRecord::Base
     end
 
     # Is there already a Student with this User number?
-    current_user = user_class.find_or_create_by_user_name(user_attributes[:user_name])
+    current_user = user_class.find_or_create_by(
+      user_name: user_attributes[:user_name])
     current_user.attributes = user_attributes
 
     return unless current_user.save
     current_user
-  end
-
-  # Convenience method which returns a configuration Hash for the
-  # repository lib
-  def self.repo_config
-    {
-      'IS_REPOSITORY_ADMIN' =>
-        MarkusConfigurator.markus_config_repository_admin?,
-      'REPOSITORY_STORAGE' => 
-	MarkusConfigurator.markus_config_repository_storage,
-      'REPOSITORY_PERMISSION_FILE' =>
-        MarkusConfigurator.markus_config_repository_permission_file
-    }
   end
 
   # Set API key for user model. The key is a
@@ -273,9 +288,7 @@ class User < ActiveRecord::Base
     # If we're not the repository admin, bail out
     return if(self.student? or !MarkusConfigurator.markus_config_repository_admin?)
 
-    conf = User.repo_config
-    repo = Repository.get_class(MarkusConfigurator.markus_config_repository_type,
-                                conf)
+    repo = Repository.get_class(MarkusConfigurator.markus_config_repository_type)
     repo_names = Group.all.collect do |group|
                    File.join(MarkusConfigurator.markus_config_repository_storage,
                              group.repository_name)
@@ -287,8 +300,7 @@ class User < ActiveRecord::Base
   def revoke_repository_permissions
     return if(self.student? or !MarkusConfigurator.markus_config_repository_admin?)
 
-    conf = User.repo_config
-    repo = Repository.get_class(MarkusConfigurator.markus_config_repository_type, conf)
+    repo = Repository.get_class(MarkusConfigurator.markus_config_repository_type)
     repo_names = Group.all.collect do |group| File.join(MarkusConfigurator.markus_config_repository_storage, group.repository_name) end
     repo.delete_bulk_permissions(repo_names, [self.user_name])
   end
@@ -297,7 +309,7 @@ class User < ActiveRecord::Base
     return if(self.student? or !MarkusConfigurator.markus_config_repository_admin?)
     if self.user_name_changed?
       conf = User.repo_config
-      repo = Repository.get_class(MarkusConfigurator.markus_config_repository_type, conf)
+      repo = Repository.get_class(MarkusConfigurator.markus_config_repository_type)
       repo_names = Group.all.collect do |group| File.join(MarkusConfigurator.markus_config_repository_storage, group.repository_name) end
       repo.delete_bulk_permissions(repo_names, [self.user_name_was])
       repo.set_bulk_permissions(repo_names, {self.user_name => Repository::Permission::READ_WRITE})

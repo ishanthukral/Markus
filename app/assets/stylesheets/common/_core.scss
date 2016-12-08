@@ -46,6 +46,11 @@ input[type='radio'] {
   color: $red;
 }
 
+label.required::after {
+  content: "*";
+  color: $red;
+}
+
 .hidden {
   display: none;
 }
@@ -64,13 +69,21 @@ input[type='radio'] {
 
 #content {
   background: $white;
-  border-bottom: 1px solid $blue;
   padding: $dimen-vertical $dimen-horizontal;
 
   @include breakpoint(mobile) {
     margin-top: 3.5em;
     padding: $dimen-vertical $dimen-hor-mobile;
   }
+}
+
+#loggedIn {
+  height: 100%;
+}
+
+#wrapper {
+  background: $white;
+  min-height: 90%;
 }
 
 
@@ -146,9 +159,9 @@ input[type='radio'] {
 }
 
 .help-message {
-  @include border-radius(5px);
-  background: #ffffe0;
-  border: 1px solid #e6db55;
+  background: $light-yellow;
+  border: 1px solid $yellow;
+  border-radius: $radius;
   display: inline-block;
   padding: 10px;
   position: relative;

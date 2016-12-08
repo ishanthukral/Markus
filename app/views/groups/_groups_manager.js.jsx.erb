@@ -10,8 +10,7 @@
         selected_students: [],
         groups: [],
         selected_groups: [],
-        selected_students_in_groups: [],
-        error: null
+        selected_students_in_groups: []
       };
     },
     componentWillMount: function() {
@@ -50,15 +49,17 @@
             selected_students: [],
             selected_groups: [],
             selected_students_in_groups: [],
-            error: null
           });
         }.bind(this),
-        error: function(xhr, status, text) {
-          var error = text + ': ' + xhr.responseText;
-          this.setState({
-            error: error
-          });
-        }.bind(this)
+      });
+    },
+    componentDidMount: function () {
+      var me = this;
+      jQuery(document).ready(function () {
+        jQuery('#create_group_dialog form').on('ajax:success', function() {
+          modalCreate.close();
+          me.refresh();
+        });
       });
     },
     // Asks for new info from backend and sets state accordingly.
@@ -81,7 +82,6 @@
     render: function() {
       return (
         <div>
-          <ErrorDiv error={this.state.error} />
           <div className='columns'>
             <GroupsStudentsTable ref="groupsStudentsTable"
               students={this.state.students}
@@ -310,6 +310,12 @@
         <div className={'col-right'}>
           <div className={'tab-pane ui-tabs ui-widget ui-widget-content ui-corner-all'} id='groups-tabs'>
             <AddGroupButton refresh={this.props.refresh} />
+            <% if @assignment.group_max == 1 %>
+              <%= button_to t('groups.add_all_groups'),
+                            { action: 'create_groups_when_students_work_alone',
+                              id: @assignment.id },
+                            method: :get, remote: true %>
+            <% end %>
             <Table ref="table"
               data={groups_data}
               columns={this.props.columns}
@@ -329,22 +335,19 @@
         jQuery.ajax({
           method: 'GET',
           url: '<%= new_assignment_group_path(@assignment) %>',
-          success: function(data) {
-            this.props.refresh();
-          }.bind(this)
         });
       },
     <% else %>
       createGroup: function() {
         modalCreate.open();
-        $('new_group_name').setValue('');
+        jQuery('#new_group_name').val('');
         return false;
       },
     <% end %>
     render: function() {
       return (
-        <button className={'floatRight'} onClick={this.createGroup} >
-          <%= I18n.t('groups.add_new') %>
+        <button className='floatRight' onClick={this.createGroup} >
+          <%= t('groups.add_new') %>
         </button>
       );
     }

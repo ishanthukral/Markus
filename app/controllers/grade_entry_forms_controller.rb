@@ -1,7 +1,6 @@
 # The actions necessary for managing grade entry forms.
 
 class GradeEntryFormsController < ApplicationController
-  include GradeEntryFormsPaginationHelper
   include GradeEntryFormsHelper
 
   before_filter :authorize_only_for_admin,
@@ -10,20 +9,20 @@ class GradeEntryFormsController < ApplicationController
                          :populate_grades_table,
                          :get_mark_columns,
                          :grades,
-                         :g_table_paginate,
                          :csv_download,
                          :csv_upload,
                          :update_grade]
   before_filter :authorize_for_ta_and_admin,
                 only: [:grades,
                        :populate_grades_table,
-                       :g_table_paginate,
                        :csv_download,
                        :csv_upload,
                        :update_grade]
   before_filter :authorize_for_student,
                 only: [:student_interface,
                        :populate_term_marks_table]
+
+  layout 'assignment_content'
 
   # Create a new grade entry form
   def new
@@ -36,10 +35,10 @@ class GradeEntryFormsController < ApplicationController
     # Process input properties
     @grade_entry_form.transaction do
       # Edit params before updating model
-      new_params = update_grade_entry_form_params grade_entry_form_params
+      new_params = update_grade_entry_form_params(params)
       if @grade_entry_form.update_attributes(new_params)
         # Success message
-        flash[:success] = I18n.t('grade_entry_forms.create.success')
+        flash_message(:success, I18n.t('grade_entry_forms.create.success'))
         redirect_to action: 'edit', id: @grade_entry_form.id
       else
         render 'new'
@@ -59,10 +58,16 @@ class GradeEntryFormsController < ApplicationController
     @grade_entry_form.transaction do
 
       # Edit params before updating model
-      new_params = update_grade_entry_form_params grade_entry_form_params
+
+      new_params = update_grade_entry_form_params(params)
+
+      if params[:date_check]
+        new_params.update(date: nil)
+      end
+
       if @grade_entry_form.update_attributes(new_params)
         # Success message
-        flash[:success] = I18n.t('grade_entry_forms.edit.success')
+        flash_message(:success, I18n.t('grade_entry_forms.edit.success'))
         redirect_to action: 'edit', id: @grade_entry_form.id
       else
         render 'edit', id: @grade_entry_form.id
@@ -72,6 +77,7 @@ class GradeEntryFormsController < ApplicationController
 
   # View/modify the grades for this grade entry form
   def grades
+    @sections = Section.order(:name)
     @grade_entry_form = GradeEntryForm.find(params[:id])
   end
 
@@ -82,10 +88,11 @@ class GradeEntryFormsController < ApplicationController
     @grade_entry_item_id = params[:grade_entry_item_id]
     updated_grade = params[:updated_grade]
 
-    grade_entry_student = grade_entry_form.grade_entry_students
-                                          .find_or_create_by_user_id(@student_id)
+    grade_entry_student =
+      grade_entry_form.grade_entry_students.find_or_create_by(user_id:
+            @student_id)
 
-    @grade = grade_entry_student.grades.find_or_create_by_grade_entry_item_id(
+    @grade = grade_entry_student.grades.find_or_create_by(grade_entry_item_id:
                   @grade_entry_item_id)
 
     @grade.grade = updated_grade
@@ -98,6 +105,17 @@ class GradeEntryFormsController < ApplicationController
   # For students
   def student_interface
     @grade_entry_form = GradeEntryForm.find(params[:id])
+    if @grade_entry_form.is_hidden
+      render 'shared/http_status',
+             formats: [:html],
+             locals: {
+               code: '404',
+               message: HttpStatusHelper::ERROR_CODE['message']['404']
+             },
+             status: 404,
+             layout: false
+      return
+    end
     @student = current_user
   end
 
@@ -135,22 +153,28 @@ class GradeEntryFormsController < ApplicationController
   end
 
   def populate_grades_table
-    @grade_entry_form = GradeEntryForm.find(params[:id])
-    @students = Student.all
+    @grade_entry_form = GradeEntryForm.includes(grade_entry_students:
+                                                  [:grades, { user: :section }])
+                                      .find(params[:id])
+    if current_user.admin?
+      @students = Student.all
+    elsif current_user.ta?
+      @students = current_user.grade_entry_students.map(&:user)
+    end
 
-    @student_grades = @students.map do |student|
+    # TODO: Remove this hack by putting a computed column for the total_grade attribute
+    totals = Grade.where(grade_entry_student_id:
+                           @grade_entry_form.grade_entry_students.pluck(:id))
+                  .group(:grade_entry_student_id)
+                  .sum(:grade)
+
+    @student_grades = @grade_entry_form.grade_entry_students.map do |student_grade_entry|
+      student = student_grade_entry.user
       s = student.attributes
-      student_grade_entry = @grade_entry_form.grade_entry_students
-                                             .find_by_user_id(student.id)
+      s[:section] = student.section.try(:name) || '-'
       unless student_grade_entry.nil?
-        # Populate grades
-        @grade_entry_form.grade_entry_items.each do |grade_entry_item|
-          s[:grade_entry_form] = @grade_entry_form.id
-          @mark = student_grade_entry.grades
-                  .find_by_grade_entry_item_id(grade_entry_item.id)
-          if !@mark.nil? && !@mark.grade.nil?
-            s[grade_entry_item.id] = @mark.grade
-          end
+        student_grade_entry.grades.each do |grade|
+          s[grade.grade_entry_item_id] = grade.grade
         end
         # Populate marking state
         if student_grade_entry.released_to_student
@@ -159,7 +183,7 @@ class GradeEntryFormsController < ApplicationController
         end
         # Populate grade total
         if @grade_entry_form.show_total
-          total = student_grade_entry.total_grade
+          total = totals[student_grade_entry.id]
           if !total.nil?
             s[:total_marks] = total
           else
@@ -211,6 +235,7 @@ class GradeEntryFormsController < ApplicationController
   # Release/unrelease the marks for all the students or for a subset of students
   def update_grade_entry_students
     return unless request.post?
+
     grade_entry_form = GradeEntryForm.find_by_id(params[:id])
     errors = []
     grade_entry_students = []
@@ -219,8 +244,9 @@ class GradeEntryFormsController < ApplicationController
       errors.push(I18n.t('grade_entry_forms.grades.must_select_a_student'))
     else
       params[:students].each do |student_id|
-        grade_entry_students.push(grade_entry_form.grade_entry_students
-                            .find_or_create_by_user_id(student_id))
+        grade_entry_students.push(
+          grade_entry_form.grade_entry_students
+                          .find_or_create_by(user_id: student_id))
       end
     end
 
@@ -246,95 +272,142 @@ class GradeEntryFormsController < ApplicationController
 
     # Display success message
     if numGradeEntryStudentsChanged > 0
-      flash[:success] = I18n.t('grade_entry_forms.grades.successfully_changed',
-                               {numGradeEntryStudentsChanged: numGradeEntryStudentsChanged})
+      flash_message(:success, I18n.t('grade_entry_forms.grades.successfully_changed',
+                                     {numGradeEntryStudentsChanged: numGradeEntryStudentsChanged}))
       m_logger = MarkusLogger.instance
       m_logger.log(log_message)
     end
-    flash[:error] = errors
+    flash_message(:error, errors)
 
-    redirect_to action: 'grades', id: params[:id]
+    head :ok
   end
 
   # Download the grades for this grade entry form as a CSV file
   def csv_download
     grade_entry_form = GradeEntryForm.find(params[:id])
-    send_data grade_entry_form.get_csv_grades_report,
+    students = Student.where(hidden: false).order(:user_name)
+    grade_entry_items = grade_entry_form.grade_entry_items
+    csv_rows = []
+    # prepare first two csv rows
+    # The first row in the CSV file will contain the question names
+    row = ['']
+    grade_entry_items.each do |grade_entry_item|
+      row.push(grade_entry_item.name)
+    end
+    csv_rows.push(row)
+    # The second row in the CSV file will contain the question totals
+    row = ['']
+    grade_entry_items.each do |grade_entry_item|
+      row.push(grade_entry_item.out_of)
+    end
+    csv_rows.push(row)
+    # The rest of the rows in the CSV file will contain the students' grades
+    form_data = MarkusCSV.generate(students, csv_rows) do |student|
+      row = []
+      row.push(student.user_name)
+      grade_entry_student = grade_entry_form.grade_entry_students
+        .where(user_id: student.id)
+        .first
+      # Check whether or not we have grades recorded for this student
+      if grade_entry_student.nil?
+        grade_entry_items.each do |grade_entry_item|
+          # Blank marks for each question
+          row.push('')
+        end
+        # Blank total percent
+        row.push('')
+      else
+        grade_entry_items.each do |grade_entry_item|
+          grade = grade_entry_student
+            .grades
+            .where(grade_entry_item_id: grade_entry_item.id)
+            .first
+          if grade.nil?
+            row.push('')
+          else
+            row.push(grade.grade || '')
+          end
+        end
+        total_percent = grade_entry_form
+          .calculate_total_percent(grade_entry_student)
+        row.push(total_percent)
+      end
+      row
+    end
+    send_data form_data,
               disposition: 'attachment',
-              type: 'application/vnd.ms-excel',
+              type: 'text/csv',
               filename: "#{grade_entry_form.short_identifier}_grades_report.csv"
   end
 
   # Upload the grades for this grade entry form using a CSV file
   def csv_upload
-
-    @grade_entry_form = GradeEntryForm.find(params[:id])
-
-    encoding = params[:encoding]
-    upload = params[:upload]
-    overwrite = params[:overwrite]
-
-    #flag to check whether upload should continue. True if upload should be aborted
-    abort_upload = false
-
-    #Did the user upload a file?
-    if upload.blank?
-      flash[:error] = "No file selected!"
-      abort_upload = true
-    else
-      filename = params[:upload][:grades_file].original_filename
-      filename_extension = filename[-4, 4]
-      if filename_extension != ".csv"
-        abort_upload = true
-        flash[:error] = "You did not upload a .csv file."
-      end
-      # Replace non-UNIX line endings with standard CR+LF style
-      if (reader = File.read(params[:upload][:grades_file].path.to_s,
-                             mode: 'rb'))
-        replaced_newlines = reader.gsub!(/\r\n?|\n/, "\r\n")
-        unless replaced_newlines == nil
-          File.open(params[:upload][:grades_file].path.to_s, 'wb') do |f|
-            f.write(replaced_newlines + "\r\n")
-          end
-        end
-      end
-    end
+    @grade_entry_form = GradeEntryForm.includes(grade_entry_students: [:grades, :user])
+                                      .find(params[:id])
 
     # If the request is a post type and the abort flag is down
     # (operation can continue)
-    if request.post? && !abort_upload
+    if request.post? && params[:upload] && params[:upload][:grades_file]
       grades_file = params[:upload][:grades_file]
-      begin
-        GradeEntryForm.transaction do
-          invalid_lines = []
-          num_updates = GradeEntryForm.parse_csv(grades_file,
-                                                 @grade_entry_form,
-                                                 invalid_lines,
-                                                 encoding, overwrite)
-          unless invalid_lines.empty?
-            flash[:error] = I18n.t('csv_invalid_lines') + invalid_lines.join(', ')
-          end
-          if num_updates > 0
-            flash[:notice] = I18n.t('grade_entry_forms.csv.upload_success',
-                                    num_updates: num_updates)
+      encoding = params[:encoding]
+      overwrite = params[:overwrite]
+      names = ''
+      totals = ''
+      columns = []
+
+      # Parse the grades
+      result = MarkusCSV.parse(grades_file.read, encoding: encoding) do |row|
+        next if CSV.generate_line(row).strip.empty?
+        # grab names and totals from the first two rows
+        if names.empty?
+          names = row
+          next
+        end
+        if totals.empty?
+          totals = row
+          # Create/update the grade entry items
+          GradeEntryItem.create_or_update_from_csv_rows(
+            names,
+            totals,
+            @grade_entry_form,
+            overwrite)
+          next
+        end
+        columns = @grade_entry_form.grade_entry_items.reload
+        grade_list = @grade_entry_form.grades.map do |g|
+          [[g.grade_entry_student_id, g.grade_entry_item_id], g.grade]
+        end
+        all_grades = Hash[grade_list]
+        Upsert.batch(ActiveRecord::Base.connection, Grade.table_name) do |upsert|
+
+          s = @grade_entry_form.grade_entry_students
+                               .joins(:user)
+                               .find_by('users.user_name' => row[0].encode('UTF-8'))
+          raise CSVInvalidLineError if s.nil?
+
+          row.shift
+          row.zip(columns.take(row.size)).each do |grade, c|
+            new_grade = grade.blank? ? nil : Float(grade)
+            selector = { grade_entry_student_id: s.id,
+                         grade_entry_item_id: c.id }
+            if s.nil? || overwrite
+              setter = { grade: new_grade }
+            else
+              setter = { grade: all_grades[[s.id, c.id]] || new_grade }
+            end
+            upsert.row(selector, setter)
           end
         end
-      rescue CSV::MalformedCSVError
-        flash[:error] = t('csv.upload.malformed_csv')
-      rescue ArgumentError
-        flash[:error] = I18n.t('csv.upload.non_text_file_with_csv_extension')
       end
+      unless result[:invalid_lines].empty?
+        flash_message(:error, result[:invalid_lines])
+      end
+      unless result[:valid_lines].empty?
+        flash_message(:success, result[:valid_lines])
+      end
+    else
+      flash_message(:error, I18n.t('csv.invalid_csv'))
     end
     redirect_to action: 'grades', id: @grade_entry_form.id
-  end
-
-  private
-
-  def grade_entry_form_params
-    params.require(:grade_entry_form).permit(:description,
-                                             :message,
-                                             :date,
-                                             :show_total,
-                                             :short_identifier)
   end
 end

@@ -7,11 +7,22 @@ class Submission < ActiveRecord::Base
   before_validation :bump_old_submissions, on: :create
 
   validates_numericality_of :submission_version, only_integer: true
+  validate :max_number_of_results
   belongs_to :grouping
-  has_many   :results, dependent: :destroy
+
+  has_many   :results, -> { order :created_at },
+             dependent: :destroy
+
+  has_one    :submitted_remark, -> { where.not remark_request_submitted_at: nil },
+             class_name: 'Result'
+
   has_many   :submission_files, dependent: :destroy
   has_many   :annotations, through: :submission_files
-  has_many   :test_results, dependent: :destroy
+  has_many   :test_script_results,
+             -> { order 'created_at DESC' },
+             dependent: :destroy
+  has_many   :feedback_files, dependent: :destroy
+
 
   def self.create_by_timestamp(grouping, timestamp)
      unless timestamp.kind_of? Time
@@ -40,7 +51,6 @@ class Submission < ActiveRecord::Base
     new_submission.submission_version_used = true
     new_submission.revision_timestamp = revision.timestamp
     new_submission.revision_number = revision.revision_number
-
     new_submission.transaction do
       begin
         new_submission.populate_with_submission_files(revision)
@@ -52,34 +62,88 @@ class Submission < ActiveRecord::Base
     new_submission
   end
 
-  # returns the original result
+  # Returns the original result.
   def get_original_result
-    Result.where(submission_id: id).first
+    non_pr_results.first
   end
 
-  # returns the remark result if exists, returns nil if does not exist
-  def get_remark_result
-    Result.where(id: remark_result_id).first
-  end
-
-  # returns the latest result - remark result if exists and submitted, else original result
-  def get_latest_result
-    if self.remark_submitted?
-      self.get_remark_result
+  def remark_result
+    if remark_request_timestamp.nil? || non_pr_results.length < 2
+      nil
     else
-      self.get_original_result
+      non_pr_results.last
     end
   end
 
-  # returns the latest completed result - note: will return nil if there is no completed result
+  def non_pr_results
+    results.find_all {|r| !r.is_a_review?}
+  end
+
+  def remark_result_id
+    remark_result.try(:id)
+  end
+
+  # Returns the latest result.
+  def get_latest_result
+    if !submitted_remark.nil?
+      remark_result
+    else
+      get_original_result
+    end
+  end
+
+  # Returns the latest completed result.
   def get_latest_completed_result
-    if self.remark_submitted? && self.get_remark_result.marking_state == Result::MARKING_STATES[:complete]
-      return self.get_remark_result
+    if remark_submitted? &&
+       remark_result.marking_state == Result::MARKING_STATES[:complete]
+      remark_result
+    elsif get_original_result.marking_state == Result::MARKING_STATES[:complete]
+      get_original_result
+    else
+      nil
     end
-    if self.get_original_result.marking_state == Result::MARKING_STATES[:complete]
-      return self.get_original_result
+  end
+
+  # Sets marks when automated tests are run
+  def set_marks_for_tests
+    return if test_script_results.empty?
+
+    result = get_latest_result
+    all_marks_by_tests = true
+    result.marks.each do |mark| # Assumes marks already exist
+      marks_earned = 0
+      mark_total = 0
+      mark.markable.test_scripts.each do |test_script|
+        res = test_script_results.where(test_script_id: test_script.id).first
+        marks_earned += res.marks_earned
+        mark_total += test_script.max_marks
+      end
+      if mark_total > 0
+        real_mark = (marks_earned.to_f / mark_total.to_f * mark.markable.max_mark).round(2)
+        if mark.markable.instance_of? RubricCriterion
+          # find the nearest mark associated to a level
+          nearest_mark = (real_mark / mark.markable.weight.to_f).round * mark.markable.weight
+          real_mark = nearest_mark
+        end
+        mark.mark = real_mark
+        mark.save
+      else
+        all_marks_by_tests = false
+      end
     end
-    nil
+
+    # marking state was already complete, tests are overwriting some marks
+    if result.marking_state == Result::MARKING_STATES[:complete]
+      result.submission.assignment.assignment_stat.refresh_grade_distribution
+      result.submission.assignment.update_results_stats
+    # all marks are set by tests, can set the marking state to complete
+    elsif all_marks_by_tests
+      result.marking_state = Result::MARKING_STATES[:complete]
+      if result.save
+        result.submission.assignment.assignment_stat.refresh_grade_distribution
+        result.submission.assignment.update_results_stats
+      end
+    end
   end
 
   # For group submissions, actions here must only be accessible to members
@@ -136,19 +200,15 @@ class Submission < ActiveRecord::Base
     results.any?
   end
 
-  # Does this submission have a remark result?
+  # Returns whether this submission has a remark result.
   def has_remark?
-    !self.remark_result_id.nil?
+    !remark_result.nil?
   end
 
-  # Does this submission have a remark request submitted?
-  # remark_results in 'unmarked' state have not been submitted by the student yet (just saved)
-  # Submitted means that the remark request can be viewed by instructors and TAs and is no
-  #   longer editable by the student.
-  # Saved means that the remark request cannot be viewed by instructors or TAs yet and
-  #   the student can still make changes to the request details.
+  # Returns whether this submission has a remark request that has been
+  # submitted to instructors or TAs.
   def remark_submitted?
-    self.has_remark? && self.get_remark_result.marking_state != Result::MARKING_STATES[:unmarked]
+    !submitted_remark.nil?
   end
 
   # Helper methods
@@ -188,34 +248,43 @@ class Submission < ActiveRecord::Base
     end
   end
 
-  def create_remark_result
-    remark_result = Result.new
-    results << remark_result
-    remark_result.marking_state = Result::MARKING_STATES[:unmarked]
-    remark_result.submission_id = self.id
-    remark_result.save
-    # link remark result id to submission - must be done after remark result is saved (so it has an id)
-    self.remark_result_id = remark_result.id
-    self.save
+  def self.get_submission_by_group_id_and_assignment_id(group_id, assignment_id)
+    group = Group.find(group_id)
+    grouping = group.grouping_for_assignment(assignment_id)
+    grouping.current_submission_used
+  end
+
+  def self.get_submission_by_grouping_id_and_assignment_id(grouping_id,
+                                                        assignment_id)
+    assignment = Assignment.find(assignment_id)
+    grouping = assignment.groupings.find(grouping_id)
+    grouping.current_submission_used
+  end
+
+  def make_remark_result
+    remark = results.create(
+      marking_state: Result::MARKING_STATES[:incomplete],
+      remark_request_submitted_at: Time.zone.now)
 
     # populate remark result with old marks
     original_result = get_original_result
+    remark_assignment = remark.submission.grouping.assignment
 
-    old_extra_marks = original_result.extra_marks
-    old_extra_marks.each do |old_extra_mark|
-      remark_extra_mark = ExtraMark.new(old_extra_mark.attributes.merge(
-        {result_id: self.remark_result_id, created_at: Time.zone.now}))
-      remark_extra_mark.save(validate: false)
-      remark_result.extra_marks << remark_extra_mark
+    original_result.extra_marks.each do |extra_mark|
+      remark.extra_marks.create(result: remark,
+                                created_at: Time.zone.now,
+                                markable_id: extra_mark.markable_id,
+                                mark: extra_mark.mark,
+                                markable_type: extra_mark.markable_type)
     end
 
-    old_marks = original_result.marks
-    old_marks.each do |old_mark|
-      remark_mark = Mark.new(old_mark.attributes.merge(
-        {result_id: self.remark_result_id, created_at: Time.zone.now}))
-      remark_mark.save(validate: false)
-      remark_result.marks << remark_mark
+    remark_assignment.get_criteria(:ta).each do |criterion|
+      remark_mark = Mark.where(markable_id: criterion.id, result_id: remark.id)
+      original_mark = Mark.where(markable_id: criterion.id, result_id: original_result.id)
+      remark_mark.first.update!(mark: original_mark.first.mark)
     end
+
+    remark.save
   end
 
   private
@@ -223,7 +292,7 @@ class Submission < ActiveRecord::Base
   def create_result
     result = Result.new
     results << result
-    result.marking_state = Result::MARKING_STATES[:unmarked]
+    result.marking_state = Result::MARKING_STATES[:incomplete]
     result.save
   end
 
@@ -243,4 +312,7 @@ class Submission < ActiveRecord::Base
      end
   end
 
+  def max_number_of_results
+    results.size < 3
+  end
 end

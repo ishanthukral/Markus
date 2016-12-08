@@ -15,7 +15,8 @@
     },
     studentsCheckboxAllClicked: function(event) {
       if (event.currentTarget.checked) {
-        var new_selected_students = this.props.students.map(function(x) {
+        var visible_rows = this.refs.myTable.state.visible_rows;
+        var new_selected_students = visible_rows.map(function(x) {
           return x.id;
         }).slice();
         this.props.onSelectedStudentsChange(new_selected_students);
@@ -36,9 +37,13 @@
     },
     gradersInStudentsCheckboxAllClicked: function(event) {
       if (event.currentTarget.checked) {
-        var new_selected_graders = this.props.graders_for_students.map(function(x) {
-          return x.membership_id;
-        }).slice();
+        var visible_rows = this.refs.myTable.state.visible_rows;
+        var new_selected_graders = [];
+        for (var i = 0; i < visible_rows.length; i++) {
+          for (var j = 0; j < visible_rows[i].graders.length; j++) {
+            new_selected_graders.push(visible_rows[i].graders[j].props.key);
+          }
+        }
         this.props.onSelectedGradersForStudentsChange(new_selected_graders);
       } else {
         this.props.onSelectedGradersForStudentsChange([]);
@@ -46,10 +51,10 @@
     },
     getInitialState: function() {
       return {
-        error: null,
         students: [],
         graders_for_students: [],
-        selected_students: []
+        selected_students: [],
+        sections: []
       };
     },
     updateSelectedStudents: function(students) {
@@ -67,31 +72,33 @@
         dataType: 'json',
         success: function(data) {
           this.setState({
-            students: data,
-            graders_for_students: [].concat.apply([], data.map(function(student){
+            students: data[0],
+            graders_for_students: [].concat.apply([], data[0].map(function(student){
               return student.graders;
             })),
-            error: null
+            sections: data[1],
           });
         }.bind(this),
-        error: function(xhr, status, text) {
-          var error = text + ': ' + xhr.responseText;
-          this.setState({
-            error: error
-          });
-        },
         complete: function() {
           document.getElementById('working').style.display = 'none';
         }
 
       });
     },
-    onError: function(error) {
-      this.setState({
-        error: error
-      });
-    },
     render: function() {
+      var section_filters = this.state.sections.map(function(section) {
+        var filter = {
+          name: section.name,
+          text: section.name,
+          func: function(group) {
+            return group.section === section.name;
+          }
+        };
+        return filter;
+      });;
+      var all = '<%= I18n.t('all') %>';
+      section_filters.unshift({name: all, text: all, func: function(g) { return g; } });
+
       var columns = [
           {
             id: 'checkbox',
@@ -135,7 +142,7 @@
           onChange={this.studentCheckboxClicked} />
         g['user_name'] = student.user_name;
         g['full_name'] = student.first_name + " " + student.last_name;
-        g['section'] = student.section == "" ? "-" : student.section;
+        g['section'] = student.section_name == "" ? "-" : student.section_name;
         var graders = student.graders.length > 0 ? [] : '';
         for (var i = 0; i < student.graders.length; i++) {
            graders.push(<div key={student.graders[i].membership_id}>
@@ -154,7 +161,8 @@
 
       return (
         <div className='tab-pane ui-tabs ui-widget ui-widget-content ui-corner-all' id='groups-tabs'>
-          <Table data={students_data}
+          <Table data={students_data} ref="myTable"
+            filters={section_filters} filter_type={section_filters.length > 3}
             search_placeholder={'<%= j raw I18n.t(:'students.search_students') %>'}
             onSelectedRowsChange={this.updateSelectedStudents}
             columns={columns} />

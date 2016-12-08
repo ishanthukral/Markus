@@ -23,14 +23,6 @@ module MarkusConfigurator
     end
   end
 
-  def markus_config_pdf_storage
-    if defined? PDF_STORAGE
-      return PDF_STORAGE
-    else
-      return File.join(::Rails.root.to_s, "converted_pdf_dir")
-    end
-  end
-
   def markus_config_pdf_conv_memory_allowance
     if defined? PDF_CONV_MEMORY_ALLOWANCE
       return PDF_CONV_MEMORY_ALLOWANCE
@@ -39,11 +31,11 @@ module MarkusConfigurator
     end
   end
 
-  def markus_config_pdf_support
-    if defined? PDF_SUPPORT
-      return PDF_SUPPORT
+  def markus_config_max_file_size
+    if defined? MAX_FILE_SIZE
+      return MAX_FILE_SIZE
     else
-      return false
+      return 5000000
     end
   end
 
@@ -51,7 +43,7 @@ module MarkusConfigurator
     if defined? REPOSITORY_TYPE
       return REPOSITORY_TYPE
     else
-      return "git"
+      return 'git'
     end
   end
 
@@ -59,7 +51,7 @@ module MarkusConfigurator
     if defined? REPOSITORY_EXTERNAL_BASE_URL
       return REPOSITORY_EXTERNAL_BASE_URL
     else
-      return "http://www.example.com/git"
+      return 'http://www.example.com/git'
     end
   end
 
@@ -81,7 +73,7 @@ module MarkusConfigurator
     if defined? REPOSITORY_PERMISSION_FILE
       return REPOSITORY_PERMISSION_FILE
     else
-      return File.join(markus_config_repository_storage, "git_auth")
+      return File.join(markus_config_repository_storage, 'git_auth')
     end
   end
 
@@ -106,16 +98,6 @@ module MarkusConfigurator
       return REMOTE_USER_AUTH
     else
       return false
-    end
-  end
-
-  #Repository for the test framework
-  #Students file will be compiled, executed and tested in this repository
-  def markus_config_automated_tests_repository
-    if defined? AUTOMATED_TESTS_REPOSITORY
-      return AUTOMATED_TESTS_REPOSITORY
-    else
-      return File.join(::Rails.root.to_s, "test-framework")
     end
   end
 
@@ -161,6 +143,7 @@ module MarkusConfigurator
       return false
     end
   end
+
   ######################################
   # MarkusLogger configuration
   ######################################
@@ -237,4 +220,119 @@ module MarkusConfigurator
     end
   end
 
+  ##########################################
+  # Automated Testing Engine Configuration
+  ##########################################
+
+  def automated_testing_engine_on?
+    return ( (defined? AUTOMATED_TESTING_ENGINE_ON) && AUTOMATED_TESTING_ENGINE_ON == true )
+  end
+
+  def markus_ate_experimental_student_tests_on
+    if automated_testing_engine_on? && (defined? ATE_EXPERIMENTAL_STUDENT_TESTS_ON)
+      return ATE_EXPERIMENTAL_STUDENT_TESTS_ON
+    else
+      return false
+    end
+  end
+
+  def markus_ate_server_host
+    if automated_testing_engine_on? && (defined? ATE_SERVER_HOST)
+      return ATE_SERVER_HOST
+    else
+      return 'localhost'
+    end
+  end
+
+  def markus_ate_server_files_username
+    if automated_testing_engine_on? && (defined? ATE_SERVER_FILES_USERNAME)
+      return ATE_SERVER_FILES_USERNAME
+    else
+      return 'localhost'
+    end
+  end
+
+  def markus_ate_server_tests_username
+    if automated_testing_engine_on? && (defined? ATE_SERVER_TESTS_USERNAME)
+      return ATE_SERVER_TESTS_USERNAME
+    else
+      return 'localhost'
+    end
+  end
+
+  def markus_ate_client_dir
+    if automated_testing_engine_on? && (defined? ATE_CLIENT_DIR)
+      return ATE_CLIENT_DIR
+    else
+      return File.join(::Rails.root.to_s, 'automated_tests')
+    end
+  end
+
+  def markus_ate_server_files_dir
+    if automated_testing_engine_on? && (defined? ATE_SERVER_FILES_DIR)
+      return ATE_SERVER_FILES_DIR
+    else
+      return File.join(::Rails.root.to_s, 'automated_tests', 'files')
+    end
+  end
+
+  def markus_ate_server_tests_dir
+    if automated_testing_engine_on? && (defined? ATE_SERVER_TESTS_DIR)
+      return ATE_SERVER_TESTS_DIR
+    else
+      return File.join(::Rails.root.to_s, 'automated_tests', 'tests')
+    end
+  end
+
+  def markus_ate_server_results_dir
+    if automated_testing_engine_on? && (defined? ATE_SERVER_RESULTS_DIR)
+      return ATE_SERVER_RESULTS_DIR
+    else
+      return File.join(::Rails.root.to_s, 'automated_tests', 'test_runs')
+    end
+  end
+
+  ##########################################
+  # Resque Configuration
+  ##########################################
+
+  def markus_ate_files_queue_name
+    if automated_testing_engine_on? && (defined? ATE_FILES_QUEUE_NAME)
+      return ATE_FILES_QUEUE_NAME
+    else
+      return 'ate_files'
+    end
+  end
+
+  def markus_ate_tests_queue_name
+    if automated_testing_engine_on? && (defined? ATE_TESTS_QUEUE_NAME)
+      return ATE_TESTS_QUEUE_NAME
+    else
+      return 'ate_tests'
+    end
+  end
+
+  def markus_job_create_individual_groups_queue_name
+    if defined? JOB_CREATE_INDIVIDUAL_GROUPS_QUEUE_NAME
+      return JOB_CREATE_INDIVIDUAL_GROUPS_QUEUE_NAME
+    else
+      return 'job_groups'
+    end
+  end
+
+  def markus_job_collect_submissions_queue_name
+    if defined? JOB_COLLECT_SUBMISSIONS_QUEUE_NAME
+      return JOB_COLLECT_SUBMISSIONS_QUEUE_NAME
+    else
+      return 'job_collect'
+    end
+  end
+
+  def markus_job_uncollect_submissions_queue_name
+    if defined? JOB_UNCOLLECT_SUBMISSIONS_QUEUE_NAME
+      return JOB_UNCOLLECT_SUBMISSIONS_QUEUE_NAME
+    else
+      return 'job_uncollect'
+    end
+  end
 end

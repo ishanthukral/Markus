@@ -12,8 +12,8 @@ class Ta < User
 
   has_many :criterion_ta_associations, dependent: :delete_all
 
-  has_many :grade_entry_student_tas
-  has_many :grade_entry_students, through: :grade_entry_student_tas
+  has_many :grade_entry_student_tas, dependent: :delete_all
+  has_many :grade_entry_students, through: :grade_entry_student_tas, dependent: :delete_all
 
   def memberships_for_assignment(assignment)
     assignment.ta_memberships.where(user_id: id, include: { grouping: :group })
@@ -55,5 +55,28 @@ class Ta < User
     grade_entry_students.where('grade_entry_form_id = ?', grade_entry_form.id)
                         .includes(:grade_entry_form)
                         .count
+  end
+
+  def grade_distribution_array(assignment, intervals = 20)
+    distribution = Array.new(intervals, 0)
+    assignment.groupings.joins(:tas)
+      .where(memberships: { user_id: id }).find_each do |grouping|
+      submission = grouping.current_submission_used
+      next if submission.nil?
+      result = submission.get_latest_completed_result
+      next if result.nil?
+      distribution = update_distribution(distribution, result,
+                                         assignment.max_mark, intervals)
+    end # end of groupings loop
+    distribution.to_json
+  end
+
+  def update_distribution(distribution, result, out_of, intervals)
+    steps = 100 / intervals # number of percentage steps in each interval
+    percentage = [100, (result.total_mark / out_of * 100).ceil].min
+    interval = (percentage / steps).floor
+    interval -= (percentage % steps == 0) ? 1 : 0
+    distribution[interval] += 1
+    distribution
   end
 end

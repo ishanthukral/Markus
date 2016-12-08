@@ -2,7 +2,7 @@ require 'spec_helper'
 
 describe GroupsController do
   describe 'administrator access' do
-    let(:grouping) { build_stubbed(:grouping) }
+    let(:grouping) { create(:grouping) }
     let(:assignment) { grouping.assignment }
 
     before :each do
@@ -11,22 +11,20 @@ describe GroupsController do
       allow(controller).to receive(:logged_in?).and_return(true)
       allow(controller).to receive(:current_user).and_return(build(:admin))
 
-      allow(Assignment).to receive(:find).and_return(assignment)
     end
 
     describe '#note_message'
 
     describe 'GET #new' do
-      context 'when no group name is specified' do
-        it 'assigns the requested assignment to @assignment' do
-          get :new, assignment_id: assignment
-          expect(assigns(:assignment)).to eq(assignment)
-        end
+      before :each do
+        allow(Assignment).to receive(:find).and_return(assignment)
+      end
 
+      context 'when no group name is specified' do
         it 'adds a new group to assignment' do
           expect(assignment).to receive(:add_group)
-            .with(nil)
-            .and_return(grouping)
+                                  .with(nil)
+                                  .and_return(grouping)
           get :new, assignment_id: assignment
         end
       end
@@ -37,8 +35,8 @@ describe GroupsController do
         context 'when group creation successful' do
           it 'creates a new group with specified name' do
             expect(assignment).to receive(:add_group)
-              .with(group_name)
-              .and_return(grouping)
+                                    .with(group_name)
+                                    .and_return(grouping)
             get :new, assignment_id: assignment, new_group_name: group_name
           end
         end
@@ -46,8 +44,8 @@ describe GroupsController do
         context 'when group creation unsuccessful' do
           before :each do
             allow(assignment).to receive(:add_group)
-              .with(group_name)
-              .and_raise('Group #{group_name} already exists')
+                                   .with(group_name)
+                                   .and_raise('Group #{group_name} already exists')
 
             get :new, assignment_id: assignment, new_group_name: group_name
           end
@@ -121,9 +119,6 @@ describe GroupsController do
       end
     end
 
-    describe '#upload_dialog'
-    describe '#download_dialog'
-    describe '#rename_group_dialog'
     describe '#rename_group'
     describe '#valid_grouping'
     describe '#invalid_grouping'
@@ -132,12 +127,8 @@ describe GroupsController do
 
     describe 'GET #index' do
       before :each do
-        allow(Assignment).to receive(:all).and_return([assignment])
+        allow(Assignment).to receive(:find).and_return(assignment)
         get :index, assignment_id: assignment
-      end
-
-      it 'populates @all_assignments with assignments' do
-        expect(assigns(:all_assignments)).to match_array([assignment])
       end
 
       it 'assigns the requested assignment to @assignment' do
@@ -149,8 +140,190 @@ describe GroupsController do
       end
     end
 
-    describe '#csv_upload'
-    describe '#download_grouplist'
+    describe '#csv_upload' do
+      before :all do
+        # remove a generated repo so repeated test runs function properly
+        FileUtils.rm_r(
+          File.join(::Rails.root.to_s, 'data/test/repos/group_0001', '/'),
+          force: true)
+      end
+
+      before :each do
+        # We need to mock the rack file to return its content when
+        # the '.read' method is called to simulate the behaviour of
+        # the http uploaded file
+        @file_good = fixture_file_upload(
+          'files/groups/form_good.csv', 'text/csv')
+        allow(@file_good).to receive(:read).and_return(
+          File.read(fixture_file_upload(
+                      'files/groups/form_good.csv',
+                      'text/csv')))
+
+        @file_invalid_column = fixture_file_upload(
+          'files/groups/form_invalid_column.csv', 'text/csv')
+        allow(@file_invalid_column).to receive(:read).and_return(
+          File.read(fixture_file_upload(
+                      'files/groups/form_invalid_column.csv',
+                      'text/csv')))
+
+        @file_bad_csv = fixture_file_upload(
+          'files/bad_csv.csv', 'text/xls')
+        allow(@file_bad_csv).to receive(:read).and_return(
+          File.read(fixture_file_upload('files/bad_csv.csv', 'text/csv')))
+
+        @file_wrong_format = fixture_file_upload(
+          'files/wrong_csv_format.xls', 'text/xls')
+        allow(@file_wrong_format).to receive(:read).and_return(
+          File.read(fixture_file_upload(
+                      'files/wrong_csv_format.xls', 'text/csv')))
+
+        # Setup for SubversionRepository
+        allow(MarkusConfigurator)
+          .to receive(:markus_config_repository_type).and_return('svn')
+
+        @assignment = create(:assignment,
+                             allow_web_submits: true,
+                             group_max: 1,
+                             group_min: 1)
+
+        # Create students corresponding to the file_good
+        @student_user_names = %w(c8shosta c5bennet)
+        @student_user_names.each do |name|
+          create(:user, user_name: name, type: 'Student')
+        end
+      end
+
+      it 'accepts a valid file' do
+        post :csv_upload,
+             assignment_id: @assignment.id,
+             group: { grouplist: @file_good }
+
+        expect(response.status).to eq(302)
+        expect(flash[:error]).to be_nil
+        expect(flash[:success])
+          .to eq([I18n.t('csv_valid_lines', valid_line_count: 1)])
+        expect(response).to redirect_to(action: 'index')
+
+        expect(Group.find_by(group_name: 'group1').repo_name)
+          .to eq('group_0001')
+
+        # remove the generated repo so repeated test runs function properly
+        FileUtils.rm_r(
+          File.join(::Rails.root.to_s, 'data/test/repos/group_0001', '/'),
+          force: true)
+      end
+
+      it 'does not accept files with invalid columns' do
+        post :csv_upload,
+             assignment_id: @assignment.id,
+             group: { grouplist: @file_invalid_column }
+
+        expect(response.status).to eq(302)
+        expect(flash[:error]).to_not be_empty
+        expect(response).to redirect_to(action: 'index')
+      end
+
+      it 'does not accept fileless submission' do
+        post :csv_upload,
+             assignment_id: @assignment.id
+
+        expect(response.status).to eq(302)
+        expect(flash[:error]).to_not be_empty
+        expect(response).to redirect_to(action: 'index')
+      end
+
+      it 'does not accept a non-csv file with .csv extension' do
+        post :csv_upload,
+             assignment_id: @assignment.id,
+             group: { grouplist: @file_bad_csv }
+
+        expect(response.status).to eq(302)
+        expect(flash[:error]).to_not be_empty
+        expect(response).to redirect_to(action: 'index')
+      end
+
+      it 'does not accept a .xls file' do
+        post :csv_upload,
+             assignment_id: @assignment.id,
+             group: { grouplist:  @file_wrong_format }
+
+        expect(response.status).to eq(302)
+        expect(flash[:error]).to_not be_empty
+        expect(response).to redirect_to(action: 'index')
+      end
+    end
+
+    describe '#download_grouplist' do
+      let(:csv_options) do
+        {
+          type: 'text/csv',
+          filename: "#{@assignment.short_identifier}_group_list.csv",
+          disposition: 'attachment'
+        }
+      end
+
+      before :each do
+        @assignment = FactoryGirl.create(:assignment,
+                                         allow_web_submits: true,
+                                         group_max: 1,
+                                         group_min: 1)
+
+        @group = FactoryGirl.create(:group)
+
+        @student1 = create(:student, user_name: 'c8shosta')
+        @student2 = create(:student, user_name: 'c5bennet')
+
+        grouping = Grouping.new(assignment: @assignment, group: @group)
+        grouping.save
+
+        grouping.add_member(@student1, StudentMembership::STATUSES[:inviter])
+        grouping.add_member(@student2, StudentMembership::STATUSES[:accepted])
+
+        @ta_name = 'c8shacd'
+        @ta = create(:ta, user_name: @ta_name)
+        # For each grouping for Assignment 1, assign 2 TAs
+        @assignment.groupings.each do |grouping|
+          grouping.add_tas([@ta])
+        end
+      end
+
+      it 'responds with appropriate status' do
+        get :download_grouplist, assignment_id: @assignment.id, format: 'csv'
+        expect(response.status).to eq(200)
+      end
+
+      # parse header object to check for the right disposition
+      it 'sets disposition as attachment' do
+        get :download_grouplist, assignment_id: @assignment.id, format: 'csv'
+        d = response.header['Content-Disposition'].split.first
+        expect(d).to eq 'attachment;'
+      end
+
+      it 'expects a call to send_data' do
+        csv_data = "#{@group.group_name},#{@group.repo_name}," +
+          "#{@student1.user_name},#{@student2.user_name}\n"
+        expect(@controller).to receive(:send_data).with(csv_data, csv_options) {
+          # to prevent a 'missing template' error
+          @controller.render nothing: true
+        }
+        get :download_grouplist, assignment_id: @assignment.id, format: 'csv'
+      end
+
+      # parse header object to check for the right content type
+      it 'returns text/csv type' do
+        get :download_grouplist, assignment_id: @assignment.id, format: 'csv'
+        expect(response.content_type).to eq 'text/csv'
+      end
+
+      # parse header object to check for the right file naming convention
+      it 'filename passes naming conventions' do
+        get :download_grouplist, assignment_id: @assignment.id, format: 'csv'
+        filename = response.header['Content-Disposition']
+                     .split.last.split('"').second
+        expect(filename).to eq "#{@assignment.short_identifier}_group_list.csv"
+      end
+    end
+
     describe '#use_another_assignment_groups'
     describe '#global_actions'
     describe '#invalidate_groupings'

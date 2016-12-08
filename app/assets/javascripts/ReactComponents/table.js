@@ -35,6 +35,8 @@
  *                          a filter is activated. An object belonging to the filter should return
  *                          true to this method (and the contrapositive of this statement).
  *
+ *  secondary_filters - an array of javascript objects of the same form as in filters for an additional set of filters
+ *
  *  filter_type - a boolean that determines how the filter is styled. Pass true if you want a select dropdown
  *                or false for a flat listing. Usually you want the dropdown if there are 3+ filters.
  *
@@ -52,9 +54,16 @@ var Table = React.createClass({displayName: 'Table',
     search_placeholder: React.PropTypes.string,
     columns: React.PropTypes.array,
     filters: React.PropTypes.array, // Optional: pass null
+    secondary_filters: React.PropTypes.array, // Optional: pass null
     filter_type: React.PropTypes.bool, // True for select filter, falsy for simple
     selectable: React.PropTypes.bool, // True if you want checkboxed elements
     onSelectedRowsChange: React.PropTypes.func // function to call when selected rows change
+  },
+  getDefaultProps: function() {
+      return {
+          search: true,
+          footer: true
+      }
   },
   getInitialState: function() {
     var first_sortable_column = this.props.columns.filter(function(col) {
@@ -64,11 +73,17 @@ var Table = React.createClass({displayName: 'Table',
         this.props.filters ? this.props.filters[0].name : null;
     var first_filter_func =
         this.props.filters ? this.props.filters[0].func : null;
+    var first_secondary_filter_name =
+        this.props.secondary_filters ? this.props.secondary_filters[0].name : null;
+    var first_secondary_filter_func =
+        this.props.secondary_filters ? this.props.secondary_filters[0].func : null;
     return {
       visible_rows: [],
       selected_rows: [],
       filter: first_filter_name,
       filter_func: first_filter_func,
+      secondary_filter: first_secondary_filter_name,
+      secondary_filter_func: first_secondary_filter_func,
       sort_column: first_sortable_column.id,
       sort_direction: 'asc',
       sort_compare: first_sortable_column.compare,
@@ -86,10 +101,26 @@ var Table = React.createClass({displayName: 'Table',
     var filter_func = this.props.filters.filter(function(fltr) {
         return fltr.name == filter;
       })[0].func;
-    var visible_rows = this.updateVisibleRows({filter_func: filter_func});
+    var visible_rows = this.updateVisibleRows({
+      filter_func: filter_func
+    });
     this.setState({
       filter: filter,
       filter_func: filter_func,
+      visible_rows: visible_rows
+    });
+  },
+  // A secondary filter was clicked. Adjust state accordingly.
+  synchronizeSecondaryFilter: function(filter) {
+    var filter_func = this.props.secondary_filters.filter(function(fltr) {
+        return fltr.name == filter;
+      })[0].func;
+    var visible_rows = this.updateVisibleRows({
+      secondary_filter_func: filter_func
+    });
+    this.setState({
+      secondary_filter: filter,
+      secondary_filter_func: filter_func,
       visible_rows: visible_rows
     });
   },
@@ -150,11 +181,14 @@ var Table = React.createClass({displayName: 'Table',
 
     var new_data = changed.hasOwnProperty('data') ? changed.data : this.props.data;
     var filter_function = changed.hasOwnProperty('filter_func') ? changed.filter_func : this.state.filter_func;
+    var secondary_filter_function = changed.hasOwnProperty('secondary_filter_func') ? changed.secondary_filter_func : this.state.secondary_filter_func;
     var search_text = changed.hasOwnProperty('search_text') ? changed.search_text: this.state.search_text;
 
     var filtered_data = filter_data(new_data,
                                     filter_function);
-    var searched_data = search_data(filtered_data,
+    var secondary_filtered_data = filter_data(filtered_data,
+                                    secondary_filter_function);
+    var searched_data = search_data(secondary_filtered_data,
                                     searchables,
                                     search_text);
     var visible_data = searched_data;
@@ -169,30 +203,53 @@ var Table = React.createClass({displayName: 'Table',
     } else {
       columns = this.props.columns;
     }
-
+    var secondary_filter_div = null;
+    if (this.props.secondary_filters != null) {
+      secondary_filter_div = TableFilter( {
+        filters:        this.props.secondary_filters,
+        current_filter: this.state.secondary_filter,
+        onFilterChange: this.synchronizeSecondaryFilter,
+        data:           this.props.data,
+        filter_type:    this.props.filter_type
+      });
+    }
+    var footer_div = TableFooter( {
+      columns:        columns,
+      sort_column:    this.state.sort_column,
+      sort_direction: this.state.sort_direction } );
+    if (!this.props.footer) {
+      footer_div = null;
+    }
+    var search_div = TableSearch( {
+      onSearchInputChange: this.synchronizeSearchInput,
+      placeholder:         this.props.search_placeholder} );
+    if (!this.props.search) {
+      search_div = null;
+    }
     return (
       React.DOM.div( {className:"react-table"},
-        TableFilter( {filters:this.props.filters,
-          current_filter:this.state.filter,
-          onFilterChange:this.synchronizeFilter,
-          data:this.props.data,
-          filter_type:this.props.filter_type} ),
-        TableSearch( {onSearchInputChange:this.synchronizeSearchInput,
-          placeholder:this.props.search_placeholder} ),
+        TableFilter( {
+          filters:          this.props.filters,
+          current_filter:   this.state.filter,
+          onFilterChange:   this.synchronizeFilter,
+          data:             this.props.data,
+          filter_type:      this.props.filter_type} ),
+        secondary_filter_div,
+        search_div,
         React.DOM.div( {className:"table"},
           React.DOM.table( {},
-            TableHeader( {columns:columns,
-              sort_column:this.state.sort_column,
-              sort_direction:this.state.sort_direction,
-              onHeaderColumnChange:this.synchronizeHeaderColumn} ),
-            TableRows( {columns:columns,
-              rowCheckboxClicked:this.rowCheckboxClicked,
-              selectable:this.props.selectable,
-              getVisibleRows:this.updateVisibleRows,
-              state:this.state} ),
-            TableFooter( {columns:columns,
-              sort_column:this.state.sort_column,
-              sort_direction:this.state.sort_direction } )
+            TableHeader( {
+              columns:              columns,
+              sort_column:          this.state.sort_column,
+              sort_direction:       this.state.sort_direction,
+              onHeaderColumnChange: this.synchronizeHeaderColumn} ),
+            TableRows( {
+              columns:              columns,
+              rowCheckboxClicked:   this.rowCheckboxClicked,
+              selectable:           this.props.selectable,
+              getVisibleRows:       this.updateVisibleRows,
+              state:                this.state} ),
+            footer_div
           )
         )
       )
@@ -487,7 +544,7 @@ function search_data(data, searchables, search_text) {
 function search_item(search_text, item) {
   if (item.hasOwnProperty('props')) {
     // is a React Component- need to get innerHTML
-    return item.props.dangerouslySetInnerHTML.__html.toLowerCase().indexOf(search_text) !== -1
+    return item.props.children.toLowerCase().indexOf(search_text) !== -1
   } else {
     return item.toLowerCase().indexOf(search_text) !== -1
   }
@@ -508,8 +565,10 @@ function sort_by_column(data, column, direction, compare) {
       } else if (a.props.hasOwnProperty('src')) {
         return a.props.src;
       // Is a react component, get innerHTML
-      } else {
+      } else if (a.props.hasOwnProperty('dangerouslySetInnerHTML')) {
         return a.props.dangerouslySetInnerHTML.__html.toLowerCase();
+      } else {
+        return React.renderComponentToString(a);
       }
     }
     return a;

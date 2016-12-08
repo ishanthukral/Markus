@@ -1,6 +1,8 @@
 class SummariesController < ApplicationController
   include SummariesHelper
 
+  before_filter  :authorize_only_for_admin
+
   def index
     @assignment = Assignment.find(params[:assignment_id])
     @section_column = ''
@@ -12,11 +14,7 @@ class SummariesController < ApplicationController
       },"
     end
 
-    if @assignment.marking_scheme_type == 'rubric'
-      @criteria = @assignment.rubric_criteria
-    else
-      @criteria = @assignment.flexible_criteria
-    end
+    @criteria = @assignment.get_criteria
   end
 
   def populate

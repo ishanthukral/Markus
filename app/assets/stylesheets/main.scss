@@ -1,9 +1,15 @@
 @import 'common/core';
-
 @import 'common/login';
+@import 'common/assignment_dropdown';
 
 
 /* Dashboard */
+
+.link_disabled {
+  color: $black;
+  display: block;
+  pointer-events: none;
+}
 
 #dashboard_lists {
   float: left;
@@ -19,15 +25,15 @@
   min-height: 1px;
   padding-right: 15px;
   padding-left: 15px;
-  float: left;
+  float: right;
   width: 70%;
   text-align: center;
 }
 
 .assignment_summary {
-  @include border-radius($radius);
   background-color: $light-grey;
   border: 1px solid $blue;
+  border-radius: $radius;
   display: inline-block;
   margin: $dimen-vertical / 2;
   padding: 1.25em;
@@ -54,10 +60,8 @@
     padding: 0;
   }
 
-
-
   table {
-    width:100%;
+    width: 100%;
 
     tr {
       border: none;
@@ -78,6 +82,23 @@
   .grader_distribution {
     margin-bottom: 0;
   }
+
+  #grader-right {
+    height: 380px;
+    overflow: scroll;
+  }
+
+  ::-webkit-scrollbar {
+    -webkit-appearance: none;
+    width: 7px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: rgba($black, 0.5);
+    border-radius: 4px;
+    box-shadow: 0 0 1px rgba($grey, 0.5);
+  }
+
 }
 
 .due_date {
@@ -97,8 +118,8 @@
 }
 
 #api_key_box {
-  @include border-radius(5px);
-  border: 1px solid #ccc;
+  border: 1px solid $grey;
+  border-radius: $radius;
   margin-top: 0.5em;
   overflow: auto;
   padding: 0.75em;
@@ -110,6 +131,15 @@
   }
 }
 
+.pr_assignment_list {
+  padding-left: 15px;
+  display: block;
+  padding-top: 5px;
+}
+
+.pr_date {
+  padding-top: 5px;
+}
 
 /* Error status page (e.g. 404) */
 
@@ -121,3 +151,4 @@
   top: 50%;
   width: 100%;
 }
+

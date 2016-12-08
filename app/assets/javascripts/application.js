@@ -4,11 +4,11 @@
 // It's not advisable to add code directly here, but if you do, it'll appear at the bottom of the
 // the compiled file.
 //
-//= require prototype
 //= require jquery
 //= require jquery-ui
 //= require jquery_ujs
 //= require jquery.easyModal
+//= require smart_poll
 //= require_tree ./ReactComponents
 
 
@@ -16,6 +16,16 @@
 
 function ModalMarkus(elem) {
   this.modal_dialog = jQuery(elem).easyModal({
+    onOpen: function (myModal) {
+     // wait for the modal to load
+     setTimeout(function () {
+       // search for elements that can receive text as input
+       var inputs = jQuery(myModal).find('textarea, input:text');
+       if (inputs.length > 0) {
+         inputs[0].focus();
+       }
+     }, 200);
+    },
     updateZIndexOnOpen: false
   });
 }
@@ -51,3 +61,30 @@ Element.prototype.hasClass = function(className) {
   else
     return new RegExp('(^| )' + className + '( |$)', 'gi').test(this.className);
 }
+
+jQuery(document).ajaxComplete(function(event, request) {
+  var keys = ['notice', 'warning', 'success', 'error'];
+  var keysLength = keys.length;
+  var flashMessageList = [];
+  var receive = false;
+  for (var i = 0; i < keysLength; i++) {
+    flashMessageList.push(request.getResponseHeader('X-Message-' + keys[i]));
+    if (flashMessageList[i]) receive = true;
+  }
+  for (var i = 0; i < keysLength; i++) {
+    var flashMessage = flashMessageList[i];
+    if (flashMessage) {
+      var messages = flashMessage.split(';');
+      jQuery('.' + keys[i]).empty();
+      for (var j = 0; j < messages.length; j++) {
+        jQuery('.' + keys[i]).append('<p>' + messages[j] + '</p>');
+      }
+      jQuery('.' + keys[i]).show();
+    } else if (receive) {
+      jQuery('.' + keys[i]).empty();
+    }
+    if (jQuery('.' + keys[i]).is(':empty')) {
+      jQuery('.' + keys[i]).hide()
+    }
+  }
+});

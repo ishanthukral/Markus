@@ -35,19 +35,23 @@ module Repository
     # created using SubversionRepository.create(), it it is not yet existent
     def initialize(connect_string)
       # Check if configuration is in order
-      if Repository.conf[:IS_REPOSITORY_ADMIN].nil?
-        raise ConfigurationError.new("Required config 'IS_REPOSITORY_ADMIN' not set")
+      unless MarkusConfigurator.markus_config_repository_admin?
+        raise ConfigurationError.new('Init: Required config ' \
+                                     "'IS_REPOSITORY_ADMIN' not set")
       end
-      if Repository.conf[:REPOSITORY_PERMISSION_FILE].nil?
-        raise ConfigurationError.new("Required config 'REPOSITORY_PERMISSION_FILE' not set")
+      if MarkusConfigurator.markus_config_repository_permission_file.nil?
+        raise ConfigurationError.new('Required config ' \
+                                     "'REPOSITORY_PERMISSION_FILE' not set")
       end
       begin
         super(connect_string) # dummy call to super
       rescue NotImplementedError; end
       @repos_path = connect_string
       @closed = false
-      @repos_auth_file = Repository.conf[:REPOSITORY_PERMISSION_FILE] || File.dirname(connect_string) + "/svn_authz"
-      @repos_admin = Repository.conf[:IS_REPOSITORY_ADMIN]
+      @repos_auth_file = MarkusConfigurator
+                         .markus_config_repository_permission_file ||
+                         File.dirname(connect_string) + '/svn_authz'
+      @repos_admin = MarkusConfigurator.markus_config_repository_admin?
       if (SubversionRepository.repository_exists?(@repos_path))
         @repos = Svn::Repos.open(@repos_path)
       else
@@ -200,6 +204,48 @@ module Repository
       end
     end
     alias download_as_string stringify_files # create alias
+
+    # Generate and write the SVN authorization file for the repo.
+    def self.__set_all_permissions
+      return true if !MarkusConfigurator.markus_config_repository_admin?
+      valid_groupings_and_members = {}
+      assignments = Assignment.all
+      assignments.each do |assignment|
+        valid_groupings = assignment.valid_groupings
+        valid_groupings.each do |gr|
+          accepted_students = gr.accepted_students
+          accepted_students = accepted_students.map(&:user_name)
+          valid_groupings_and_members[gr.group.repo_name] = accepted_students
+        end
+      end
+      tas = Ta.all
+      tas = tas.map(&:user_name)
+      admins = Admin.all
+      admins = admins.map(&:user_name)
+      tas_and_admins = tas + admins
+      invalid_groups = Group.all
+      invalid_groups = invalid_groups.map(&:repository_name)
+      authz_string = ''
+      valid_groupings_and_members.each do |repo_name, students|
+        authz_string += "[#{repo_name}:/]\n"
+        students.each do |user_name|
+          authz_string += "#{user_name} = rw\n"
+        end
+        tas_and_admins.each do |admin_user|
+          authz_string += "#{admin_user} = rw\n"
+        end
+        authz_string += "\n"
+        invalid_groups.delete(repo_name)
+      end
+      invalid_groups.each do |repo_name|
+        authz_string += "[#{repo_name}:/]\n"
+        tas_and_admins.each do |admin_user|
+          authz_string += "#{admin_user} = rw\n"
+        end
+        authz_string += "\n"
+      end
+      __write_out_authz_file(authz_string)
+    end
 
     # Returns a Repository::SubversionRevision instance
     # holding the latest Subversion repository revision
@@ -445,11 +491,7 @@ module Repository
     # permissions on a single repository.
     def self.set_bulk_permissions(repo_names, user_id_permissions_map)
       # Check if configuration is in order
-      if Repository.conf[:IS_REPOSITORY_ADMIN].nil?
-        raise ConfigurationError.new("Required config 'IS_REPOSITORY_ADMIN' not set")
-      end
-      # If we're not in authoritative mode, bail out
-      if !Repository.conf[:IS_REPOSITORY_ADMIN] # Are we admin?
+      unless MarkusConfigurator.markus_config_repository_admin?
         raise NotAuthorityError.new("Unable to set bulk permissions:  Not in authoritative mode!");
       end
 
@@ -480,11 +522,7 @@ module Repository
     # permissions of a single repository.
     def self.delete_bulk_permissions(repo_names, user_ids)
       # Check if configuration is in order
-      if Repository.conf[:IS_REPOSITORY_ADMIN].nil?
-        raise ConfigurationError.new("Required config 'IS_REPOSITORY_ADMIN' not set")
-      end
-      # If we're not in authoritative mode, bail out
-      if !Repository.conf[:IS_REPOSITORY_ADMIN] # Are we admin?
+      if !MarkusConfigurator.markus_config_repository_admin?
         raise NotAuthorityError.new("Unable to delete bulk permissions:  Not in authoritative mode!");
       end
 
@@ -523,18 +561,27 @@ module Repository
     ##  this class).
     ####################################################################
 
-    # Semi-private class method: Reads in Repository.conf[:REPOSITORY_PERMISSION_FILE]
+    # Semi-private class method
     def self.__read_in_authz_file
       # Check if configuration is in order
-      if Repository.conf[:REPOSITORY_PERMISSION_FILE].nil?
-        raise ConfigurationError.new("Required config 'REPOSITORY_PERMISSION_FILE' not set")
+      unless MarkusConfigurator.markus_config_repository_admin?
+        raise NotAuthorityError.new('Unable to read authsz file: ' \
+                                    'Not in authoritative mode!')
       end
-      if !File.exist?(Repository.conf[:REPOSITORY_PERMISSION_FILE])
-        File.open(Repository.conf[:REPOSITORY_PERMISSION_FILE], "w").close() # create file if not existent
+      if MarkusConfigurator.markus_config_repository_permission_file.nil?
+        raise ConfigurationError.new('Required config ' \
+                                     "'REPOSITORY_PERMISSION_FILE' not set")
+      end
+      unless File.exist?(MarkusConfigurator
+                         .markus_config_repository_permission_file)
+        # create file if it doesn't exist
+        File.open(MarkusConfigurator
+                    .markus_config_repository_permission_file, 'w').close
       end
       # Load up the Permissions:
       file_content = ""
-      File.open(Repository.conf[:REPOSITORY_PERMISSION_FILE], "r+") do |auth_file|
+      File.open(MarkusConfigurator.markus_config_repository_permission_file,
+                'r+') do |auth_file|
         auth_file.flock(File::LOCK_EX)
         file_content = auth_file.read()
         auth_file.flock(File::LOCK_UN) # release lock
@@ -542,25 +589,28 @@ module Repository
       return file_content
     end
 
-    # Semi-private class method: Writes out Repository.conf[:REPOSITORY_PERMISSION_FILE]
+    # Semi-private class method
     def self.__write_out_authz_file(authz_file_contents)
       # Check if configuration is in order
-      if Repository.conf[:IS_REPOSITORY_ADMIN].nil?
-        raise ConfigurationError.new("Required config 'IS_REPOSITORY_ADMIN' not set")
-      end
-      if Repository.conf[:REPOSITORY_PERMISSION_FILE].nil?
-        raise ConfigurationError.new("Required config 'REPOSITORY_PERMISSION_FILE' not set")
-      end
-      # If we're not in authoritative mode, bail out
-      if !Repository.conf[:IS_REPOSITORY_ADMIN] # Are we admin?
-        raise NotAuthorityError.new("Unable to write out repo permissions:  Not in authoritative mode!");
+      unless MarkusConfigurator.markus_config_repository_admin?
+        raise NotAuthorityError.new(
+          'Unable to write authsz file: Not in authoritative mode!')
       end
 
-      if !File.exist?(Repository.conf[:REPOSITORY_PERMISSION_FILE])
-        File.open(Repository.conf[:REPOSITORY_PERMISSION_FILE], "w").close() # create file if not existent
+      if MarkusConfigurator.markus_config_repository_permission_file.nil?
+        raise ConfigurationError.new('Required config ' \
+                                     "'REPOSITORY_PERMISSION_FILE' not set")
+      end
+
+      unless File.exist?(MarkusConfigurator
+                         .markus_config_repository_permission_file)
+        # create file if not existent
+        File.open(MarkusConfigurator.markus_config_repository_permission_file,
+                  'w').close
       end
       result = false
-      File.open(Repository.conf[:REPOSITORY_PERMISSION_FILE], "w+") do |auth_file|
+      File.open(MarkusConfigurator.markus_config_repository_permission_file,
+                'w+') do |auth_file|
         auth_file.flock(File::LOCK_EX)
         # Blast out the string to the file
         result = (auth_file.write(authz_file_contents) == authz_file_contents.length)
@@ -710,6 +760,13 @@ module Repository
       end # end case
     end
 
+    # Returns a list of paths changed at a particular revision.
+    # This seems to include deleted files, while the above methods don't.
+    def __get_file_paths(revision_number)
+      rev = @repos.fs.root(revision_number)
+      rev.paths_changed.keys
+    end
+
     ####################################################################
     ##  Private method definitions
     ####################################################################
@@ -774,7 +831,8 @@ module Repository
 
     # replaces file at provided path with file_data
     def replace_file(txn, path, file_data=nil, mime_type=nil, expected_revision_number=0)
-      if latest_revision_number(path).to_i != expected_revision_number.to_i
+      # Note: this check is inconsistent with the MemoryRepository
+      if latest_revision_number(path).to_i > expected_revision_number.to_i
         raise Repository::FileOutOfSyncConflict.new(path)
       end
       txn = write_file(txn, path, file_data, mime_type)
@@ -954,7 +1012,7 @@ module Repository
             last_modified_revision: last_modified_revision,
             last_modified_date: last_modified_date,
             changed: (last_modified_revision == @revision_number),
-            user_id: @repo.__get_property(:author, last_modified_revision)
+            user_id: @repo.__get_property(:author, @revision_number)
           })
           result[file_name] = new_directory
         end
@@ -965,6 +1023,12 @@ module Repository
     # Return changed files at 'path' (recursively)
     def changed_files_at_path(path)
       return files_at_path_helper(path, true)
+    end
+
+    # Return the names of changed files at this revision at 'path'
+    def changed_filenames_at_path(path)
+      paths = @repo.__get_file_paths(@revision_number)
+      paths.select { |p| p.start_with? ('/' + path) }
     end
 
     private

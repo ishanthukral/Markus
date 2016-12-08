@@ -16,7 +16,7 @@ module GradersHelper
       g = grouping.attributes
       g[:name] = grouping.group.group_name
       g[:students] = grouping.students
-      g[:section] = grouping.section
+      g[:section] = grouping.section || '-'
       g[:graders] = grouping.ta_memberships.map do |membership|
         m = {}
         m[:user_name] = membership.user.user_name
@@ -29,19 +29,21 @@ module GradersHelper
   end
 
   def get_graders_table_info_with_criteria(assignment)
-    graders = Ta.all
+    graders = Ta.all.includes(:criterion_ta_associations)
+    ta_counts = assignment.criterion_ta_associations.group(:ta_id).count
+
     graders.map do |grader|
       g = grader.attributes
       g[:full_name] = "#{grader.first_name} #{grader.last_name}"
       g[:groups] = grader.get_membership_count_by_assignment(assignment)
-      g[:criteria] = grader.get_criterion_associations_count_by_assignment(@assignment).to_s
+      g[:criteria] = ta_counts[grader.id].to_s
       g[:criteria] += view_context.link_to(
         view_context.image_tag(
           'icons/comment.png',
-          alt: I18n.t('criteria'),
-          title: I18n.t('criteria')),
+          alt: I18n.t('criteria.title'),
+          title: I18n.t('criteria.title')),
         grader_criteria_dialog_assignment_graders_path(
-          id: @assignment.id,
+          id: assignment.id,
           grader: grader.id),
         remote: true)
       g
@@ -51,6 +53,8 @@ module GradersHelper
   # TODO: Refactor this method (split it up)
   def get_groups_table_info_with_criteria(assignment)
     groupings = groupings_with_assoc(assignment)
+    total_criteria_count = assignment.criteria_count
+
     groups_table_info = groupings.map do |grouping|
       g = grouping.attributes
       g[:name] = grouping.group.group_name
@@ -64,7 +68,6 @@ module GradersHelper
       end
 
       assigned_count = grouping.criteria_coverage_count
-      total_criteria_count = assignment.criteria_count
       g[:coverage] = "#{assigned_count} / #{total_criteria_count}"
       if assigned_count == total_criteria_count
         g[:coverage] += view_context.link_to(
@@ -93,11 +96,8 @@ module GradersHelper
     criteria = criteria_with_assoc(assignment)
     criteria_table_info = criteria.map do |criterion|
       c = criterion.attributes
-      if assignment.marking_scheme_type == "rubric"
-        c[:name] = criterion.rubric_criterion_name
-      else
-        c[:name] = criterion.flexible_criterion_name
-      end
+      c[:name] = criterion.name
+      c[:class] = criterion.class.to_s
       c[:graders] = criterion.criterion_ta_associations.map do |association|
         m = association.attributes
         m[:user_name] = association.ta.user_name

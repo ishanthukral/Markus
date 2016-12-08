@@ -85,8 +85,8 @@ class MainController < ApplicationController
     # authentication is valid
     validation_result = validate_user(params[:user_login], params[:user_login], params[:user_password])
     unless validation_result[:error].nil?
-      flash_message(:error, validation_result[:error])
-      redirect_to action: 'login'
+      flash_now(:error, validation_result[:error])
+      render :login, locals: { user_login: params[:user_login] }
       return
     end
     # validation worked
@@ -97,7 +97,7 @@ class MainController < ApplicationController
 
     # Has this student been hidden?
     if found_user.student? && found_user.hidden
-      flash_message(:error, I18n.t('account_disabled'))
+      flash_now(:error, I18n.t('account_disabled'))
       redirect_to(action: 'login') && return
     end
 
@@ -111,7 +111,7 @@ class MainController < ApplicationController
       # redirect to last visited page or to main page
       redirect_to( uri || { action: 'index' } )
     else
-      flash_message(:error, I18n.t(:login_failed))
+      flash_now(:error, I18n.t(:login_failed))
     end
   end
 
@@ -151,15 +151,17 @@ class MainController < ApplicationController
       return
     end
     @assignments = Assignment.unscoped.includes([
-      :assignment_stat, :ta_memberships,
+      :assignment_stat, :groupings, :ta_memberships,
+      :pr_assignment,
       groupings: :current_submission_used,
       submission_rule: :assignment
-    ]).all(order: 'due_date ASC')
+    ]).order('due_date ASC')
     @grade_entry_forms = GradeEntryForm.unscoped.includes([
       :grade_entry_items
-    ]).all(order: 'date ASC')
+    ]).order('id ASC')
 
     @current_assignment = Assignment.get_current_assignment
+    @current_ta = @current_assignment.tas.first unless @current_assignment.nil?
 
     render :index, layout: 'content'
   end
@@ -386,6 +388,13 @@ private
       validation_result[:error] = I18n.t('external_authentication_not_supported')
       return validation_result
     end
+
+    if (defined? VALIDATE_CUSTOM_STATUS_DISPLAY) &&
+       authenticate_response == User::AUTHENTICATE_CUSTOM_MESSAGE
+      validation_result[:error] = VALIDATE_CUSTOM_STATUS_DISPLAY
+      return validation_result
+    end
+
     if authenticate_response == User::AUTHENTICATE_SUCCESS
       # Username/password combination is valid. Check if user is
       # allowed to use MarkUs.
@@ -399,11 +408,19 @@ private
         # not a good idea to report this to the outside world. It makes it
         # easier for attempted break-ins
         # if one can distinguish between existent and non-existent users.
-        validation_result[:error] = I18n.t(:login_failed)
+        if defined? VALIDATE_USER_NOT_ALLOWED_DISPLAY
+          validation_result[:error] = VALIDATE_USER_NOT_ALLOWED_DISPLAY
+        else
+          validation_result[:error] = I18n.t(:login_failed)
+        end
         return validation_result
       end
     else
-      validation_result[:error] = I18n.t(:login_failed)
+      if defined? VALIDATE_LOGIN_INCORRECT_DISPLAY
+        validation_result[:error] = VALIDATE_LOGIN_INCORRECT_DISPLAY
+      else
+        validation_result[:error] = I18n.t(:login_failed)
+      end
       return validation_result
     end
 
@@ -435,7 +452,11 @@ private
       # not a good idea to report this to the outside world. It makes it
       # easier for attempted break-ins
       # if one can distinguish between existent and non-existent users.
-      validation_result[:error] = I18n.t(:login_failed)
+      if defined? VALIDATE_USER_NOT_ALLOWED_DISPLAY
+        validation_result[:error] = VALIDATE_USER_NOT_ALLOWED_DISPLAY
+      else
+        validation_result[:error] = I18n.t(:login_failed)
+      end
       return validation_result
     end
 

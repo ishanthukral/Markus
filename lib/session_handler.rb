@@ -90,6 +90,24 @@ module SessionHandler
     end
   end
 
+  def authorize_for_ta_admin_and_reviewer(aid, result_id)
+    result = Result.find(result_id)
+    if aid == 'undefined'
+      assignment = result.submission.assignment
+    else
+      assignment = Assignment.find(aid)
+    end
+    unless authorized?(Admin) || authorized?(Ta) ||
+        (authorized?(Student) && assignment.has_peer_review_assignment? &&
+            current_user.is_reviewer_for?(assignment.pr_assignment, result))
+      render 'shared/http_status', formats: [:html],
+             locals:
+                 { code: '404',
+                   message: HttpStatusHelper::ERROR_CODE['message']['404'] },
+             status: 404, layout: false
+    end
+  end
+
   def authorize_for_ta_and_admin
     unless authorized?(Admin) || authorized?(Ta)
       render 'shared/http_status', formats: [:html],
@@ -176,11 +194,11 @@ module SessionHandler
       end
     end
     # No REMOTE_USER is involed.
-    return session[:timeout] < Time.now
+    session[:timeout] < Time.now
   end
 
   def check_imminent_expiry
-    if session[:timeout] - Time.now <= 5.minutes
+    if Time.parse(session[:timeout]) - Time.now <= 5.minutes
       return true
     end
     false

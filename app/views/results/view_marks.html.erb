@@ -2,7 +2,8 @@
   <%= stylesheet_link_tag('common/SyntaxHighlighter') %>
   <%= stylesheet_link_tag('grader') %>
   <%= stylesheet_link_tag('pdfjs/viewer') %>
-
+  <%= stylesheet_link_tag('clickable') %>
+  <%= javascript_include_tag 'Results/index' %>
   <%= javascript_include_tag 'panes.js' %>
   <%= javascript_include_tag 'pdfjs' %>
   <%= javascript_tag do -%>
@@ -32,10 +33,9 @@
            formats: [:html],
            handlers: [:erb] %>
 
-<% # Javascript for test result window %>
-<%= render partial: 'assignments/test_result_window',
-           formats: [:html],
-           locals: { aid: @assignment.id } %>
+<% # Javascript for feedback file window %>
+<%= render partial: 'assignments/feedback_file_window',
+           formats: [:js] %>
 
 <%= render partial: 'results/common/annotations',
            formats: [:js] %>
@@ -43,25 +43,57 @@
 <%= render partial: 'results/student/enable_remark_request_buttons',
            formats: [:js] %>
 
+<!-- Modals -->
+<%= render partial: 'download_modal', layout: 'layouts/modal_dialog'  %>
+
 <div class='title_bar'>
-  <h1>Results for <%= sanitize(@assignment.short_identifier) %></h1>
+  <h1>
+    <% if @result.is_a_review? %>
+      <% if @current_user.student? %>
+        <%= t('results.review_for') + sanitize(@assignment.short_identifier) %>
+      <% else %>
+        <%= t('results.review_title',
+              assignment_name: @assignment.short_identifier,
+              group_name: @current_group_name,
+              reviewer_name: @reviewer.group.group_name) %>
+      <% end %>
+    <% else %>
+      <%= t('results.results_for') + sanitize(@assignment.short_identifier) %>
+    <% end %>
+  </h1>
+
+  <div class='heading_buttons'>
+    <%= link_to t(:download),
+                'javascript:void(0);',
+                onclick:'modal_download.open();' %>
+  </div>
 </div>
 
 <div class='wrapLeft'>
   <%= render partial: 'results/common/errors' %>
 
-  <%= render partial: 'results/common/file_selector',
-             locals: { files: @files,
-                       can_download: true,
-                       test_result_files: @test_result_files } %>
-    <% if @assignment.enable_test %>
-      <div id='test_results_controls'>
-        <%= render partial: 'results/common/test_selector',
-                   locals: { test_result_files: @test_result_files,
-                             result: @result,
-                             submission_id: @submission.id } %>
-      </div>
-    <% end %>
+  <% if @result.is_a_review? && !@current_user.student? %>
+    <%= render partial: 'results/common/submission_selector',
+               locals: { group: @group,
+                         result: @result,
+                         assignment: @assignment,
+                         previous_grouping: @previous_grouping,
+                         next_grouping: @next_grouping } %>
+  <% end %>
+
+  <% if @result.is_review_for?(@current_user, @assignment) ||
+      (@result.is_a_review? && !@current_user.student?) %>
+    <%= render partial: 'results/common/peer_reviews',
+               locals: { current_user: @current_user,
+                         assignment: @assignment,
+                         result: @result,
+                         submission: @submission,
+                         grouping: @grouping,
+                         reviewer: @reviewer,
+                         current_group_name: @current_group_name,
+                         prs: @prs,
+                         current_pr: @current_pr} %>
+  <% end %>
 
   <%= render partial: 'results/student/student_panes',
              locals: { extra_marks_points: @extra_marks_points,
@@ -69,7 +101,10 @@
                        result: @result,
                        mark_criteria: @mark_criteria,
                        marks_map: @marks_map,
+                       old_marks_map: @old_marks_map,
                        assignment: @assignment,
                        submission: @submission,
-                       old_result: @old_result } %>
+                       old_result: @old_result,
+                       files: @files,
+                       feedback_files: @feedback_files} %>
 </div>

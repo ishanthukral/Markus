@@ -14,6 +14,7 @@ Markus::Application.configure do
   # Log error messages when you accidentally call methods on nil.
   config.whiny_nils = true
 
+  config.eager_load = true
   # Use a different logger for distributed setups
   # config.logger = SyslogLogger.new
   #
@@ -89,6 +90,23 @@ Markus::Application.configure do
   # \n or \0. These are the only restrictions.
   VALIDATE_FILE = "#{::Rails.root.to_s}/config/dummy_validate.sh"
 
+  # Normally exit status 0 means successful, 1 means no such user,
+  # and 2 means wrong password.
+  # The following allows for one additional custom exit status which also
+  # represents a failure to log in, but says so with a custom string.
+  # It is commented out by default because there is no additional custom
+  # exit status by default.
+  #VALIDATE_CUSTOM_EXIT_STATUS = 38
+  #VALIDATE_CUSTOM_STATUS_DISPLAY = 'You are a squid.  Only vertebrates may use MarkUs.'
+
+  # Custom messages for "user not allowed" and "login incorrect",
+  # overriding the default "login failed" message.  By default,
+  # MarkUs does not distinguish these cases for security reasons.
+  # If these variables are not defined (commented out), it uses the
+  # standard "login failed" message for both situations.
+  #VALIDATE_USER_NOT_ALLOWED_DISPLAY = 'That is your correct University of Foo user name and password, but you have not been added to this particular MarkUs database.  Please contact your instructor or check your course web page.'
+  #VALIDATE_LOGIN_INCORRECT_DISPLAY = 'Login incorrect.  You can check your Foo U user name or reset your password at https://www.foo.example.edu/passwords.'
+
   ###################################################################
   # Authentication Settings
   ###################################################################
@@ -142,26 +160,26 @@ Markus::Application.configure do
   REPOSITORY_STORAGE = "#{::Rails.root.to_s}/data/prod/repos"
 
   ###################################################################
-  # Directory where converted PDF files will be stored as JPEGs. Make sure MarkUs
+  # Directory where authentication keys will be uploaded. Make sure MarkUs
   # is allowed to write to this directory
-  PDF_STORAGE = "#{::Rails.root.to_s}/data/prod/pdfs"
+  KEY_STORAGE = "#{::Rails.root}/data/prod/keys"
 
   ###################################################################
-  # Directory where the Automated Testing Repositories will be created.
-  # Make sure MarkUs is allowed to write to this directory
-  AUTOMATED_TESTS_REPOSITORY = "#{::Rails.root.to_s}/data/prod/automated_tests"
+  # Location of the public and private key for the git user on the system
+  GITOLITE_SETTINGS = { public_key: '/home/git/vagrant.pub',
+                        private_key: '/home/vagrant/.ssh/id_rsa',
+                        host: 'localhost' }
 
   ###################################################################
-  # Set this to true or false if you want to be able to display and annotate
-  # PDF documents within the browser.
-  PDF_SUPPORT = false
+  # Max file size for submissions in Bytes
+  MAX_FILE_SIZE = 5000000
 
   ###################################################################
   # Change this to 'REPOSITORY_EXTERNAL_SUBMITS_ONLY = true' if you
   # are using Subversion as a storage backend and the instructor wants his/her
   # students to submit to the repositories Subversion clients only. Set this
   # to true if you intend to force students to submit via Subversion
-  # clients only. The MarkUs Web interface for submissions will be read-only.
+  # clients only. The MarkUs Web interface for submissions will be read-only
   # in that case.
   REPOSITORY_EXTERNAL_SUBMITS_ONLY = false
 
@@ -249,6 +267,71 @@ Markus::Application.configure do
   SESSION_COOKIE_EXPIRE_AFTER = 3.weeks
   SESSION_COOKIE_HTTP_ONLY = true
   SESSION_COOKIE_SECURE = false
+
+  ###################################################################
+  # Automated Testing Engine settings
+  ###################################################################
+
+  # Examples of architectures:
+  # 1) local development:
+  #    1 Resque worker to serve all queues
+  # 2) 1 client with 1 dedicated server, on the same machine with authentication or on separate machines:
+  #    1 Resque client worker + 1 Resque server worker
+  # 3) N clients with 1 shared server FIFO, on the same machine with authentication or on separate machines:
+  #    N Resque client workers + 1 Resque server worker
+
+  # Automated Testing Engine(ATE) can only be used when this is set to true
+  AUTOMATED_TESTING_ENGINE_ON = false
+
+  # Allows the instructor to allow students to run tests
+  ATE_EXPERIMENTAL_STUDENT_TESTS_ON = false
+
+  # The test server host. Use 'localhost' for a local server without authentication.
+  ATE_SERVER_HOST = 'localhost'
+  # The test server username used to copy the test files over and to run the Resque server worker.
+  # SSH Login must be set up for this username to connect without a password from MarkUs.
+  # Ignored if ATE_SERVER_HOST is 'localhost'.
+  ATE_SERVER_FILES_USERNAME = 'localhost'
+  # The test server username used to run the tests.
+  # Can be the same as ATE_SERVER_FILE_USERNAME, or ATE_SERVER_FILES_USERNAME must be able to sudo -u to it.
+  # Ignored if ATE_SERVER_HOST is 'localhost'.
+  ATE_SERVER_TESTS_USERNAME = 'localhost'
+
+  # Make sure these directories exist and the appropriate users can write into them
+  # The directory on the client where test scripts are stored and student repos are temporarily exported.
+  # The user running MarkUs writes here.
+  ATE_CLIENT_DIR = "#{::Rails.root.to_s}/data/prod/automated_tests"
+  # The directory on the test server where to copy test files. Multiple clients can write here at the same time.
+  # ATE_SERVER_FILES_USERNAME writes here.
+  ATE_SERVER_FILES_DIR = "#{::Rails.root.to_s}/data/prod/automated_tests/files"
+  # The directory on the test server where to run tests. Only one test at at time must be executed to avoid interference.
+  # Can be the same as ATE_SERVER_FILES_DIR.
+  # ATE_SERVER_FILES_USERNAME and ATE_SERVER_TESTS_USERNAME write here.
+  ATE_SERVER_TESTS_DIR = "#{::Rails.root.to_s}/data/prod/automated_tests/tests"
+  # The directory on the test server where to store test results.
+  # ATE_SERVER_FILES_USERNAME writes here.
+  ATE_SERVER_RESULTS_DIR = "#{::Rails.root.to_s}/data/prod/automated_tests/test_runs"
+
+  ###################################################################
+  # Resque queues
+  ###################################################################
+
+  # Run a Resque worker to serve all queues:
+  # TERM_CHILD=1 QUEUE=* bundle exec rake environment resque:work
+  # Run a Resque client worker and a Resque server worker:
+  # TERM_CHILD=1 QUEUE=CSC108_ate_files,CSC108_job_groups,CSC108_job_collect,CSC108_job_uncollect bundle exec rake environment resque:work
+  # TERM_CHILD=1 QUEUE=ate_tests bundle exec rake environment resque:work
+
+  # The name of the queue on the test client where submission files wait to be copied.
+  ATE_FILES_QUEUE_NAME = 'CSC108_ate_files'
+  # The name of the queue on the test server where tests wait to be executed.
+  ATE_TESTS_QUEUE_NAME = 'ate_tests'
+  # The name of the queue where jobs to create individal groups for all students wait to be executed.
+  JOB_CREATE_INDIVIDUAL_GROUPS_QUEUE_NAME = 'CSC108_job_groups'
+  # The name of the queue where jobs to collect submissions wait to be executed.
+  JOB_COLLECT_SUBMISSIONS_QUEUE_NAME = 'CSC108_job_collect'
+  # The name of the queue where jobs to uncollect submissions wait to be executed.
+  JOB_UNCOLLECT_SUBMISSIONS_QUEUE_NAME = 'CSC108_job_uncollect'
 
   ###################################################################
   # END OF MarkUs SPECIFIC CONFIGURATION

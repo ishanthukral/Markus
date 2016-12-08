@@ -1,0 +1,44 @@
+<%= content_for :head do %>
+    <%= javascript_include_tag 'PeerReviews/index' %>
+    <%= stylesheet_link_tag('clickable') %>
+
+    <%= render partial: 'peer_reviews_new_manager', formats: [:'js.jsx'], handlers: [:erb] %>
+<% end %>
+
+<% content_for :title, t('peer_reviews') %>
+
+<% @heading_buttons = [
+  { link_text: t('download'),
+    link_path: '#',
+    html_options: { onclick: 'modal_download.open();' } },
+  { link_text: t('upload'),
+    link_path: '#',
+    html_options: { onclick: 'modal_upload.open();' } }
+] %>
+
+<div class="clear"></div>
+
+<div id='notice'>
+  <div class='success' id='add_success' style='display: none;'></div>
+
+  <%# This is for error display injected by JavaScript %>
+  <div class='error' id='errors' style='display: none; '>
+    <h3><%= t('peer_review.problem') %></h3>
+    <div id='errors_title'></div>
+    <div id='errors_contents'></div>
+  </div>
+
+  <div class='warning' id='global_action_warning' style='display: none;'>
+    <h3><%= t('groups.warning') %></h3> <!-- TODO - This string should be moved out of 'groups' as it is very generic -->
+    <div id='global_action_warning_msg'></div>
+  </div>
+
+  <%# All other flash messages %>
+  <%= render 'shared/flash_message' %>
+</div>
+
+<div id='peer_reviews_manager'></div>
+
+<!-- Modals -->
+<%= render partial: 'download_modal', layout: 'layouts/modal_dialog'  %>
+<%= render partial: 'upload_modal', layout: 'layouts/modal_dialog'  %>

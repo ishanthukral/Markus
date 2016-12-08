@@ -17,6 +17,9 @@ class TestFile < ActiveRecord::Base
   validates_presence_of :filename
   validates_presence_of :filetype
 
+  # Filenames must be unique for their file type
+  validates_uniqueness_of :filename, scope: [:filetype]
+
   # Filename Validation
   validates_each :filename do |record, attr, value|
 
@@ -91,7 +94,7 @@ class TestFile < ActiveRecord::Base
     # Execute if the full file path exists (indicating a new File object)
     if @file_path
       name =  self.filename
-      test_dir = File.join(MarkusConfigurator.markus_config_automated_tests_repository, assignment.short_identifier)
+      test_dir = File.join(MarkusConfigurator.markus_ate_client_dir, assignment.short_identifier)
 
       # Folders for test, lib and parse files:
       # Test Files Folder
@@ -118,7 +121,7 @@ class TestFile < ActiveRecord::Base
 
   def delete_file
     # Test Framework repository to delete from
-    test_dir = File.join(MarkusConfigurator.markus_config_automated_tests_repository, assignment.short_identifier)
+    test_dir = File.join(MarkusConfigurator.markus_ate_client_dir, assignment.short_identifier)
     if self.filetype == 'test'
       test_dir = File.join(test_dir, 'test')
     elsif self.filetype == 'lib'

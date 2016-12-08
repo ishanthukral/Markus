@@ -24,7 +24,8 @@
         groupings: this.props.selected_groups,
         grader_memberships: this.props.selected_graders_in_groups,
         criteria: this.props.selected_criteria,
-        criterion_associations: this.props.selected_graders_in_criteria
+        criterion_associations: this.props.selected_graders_in_criteria,
+        skip_empty_submissions: this.props.skip_empty_submissions
       };
       jQuery.ajax({
         method: 'POST',
@@ -35,40 +36,44 @@
           this.props.updateSelectedGroups([]);
           this.props.updateSelectedCriteria([]);
           this.props.updateSelectedGradersInGroups([]);
-          this.props.setError(null);
           this.props.refresh();
         }.bind(this),
-        error: function(xhr, status, text) {
-          var error = text + ': ' + xhr.responseText;
-          this.props.setError(error);
-        }.bind(this)
       });
     },
     render: function() {
       return (
         <div className={'col-center'}>
           <div id='icons'>
-            <input id='random_assign'
-              className='image_input'
-              src='<%= image_path 'random_arrow.png' %>'
-              alt='<%= j raw I18n.t('groups.randomly_assign_graders') %>'
-              onClick={this.performAction}
-              type='image'
-            />
-            <img id='assign'
-              className='image_input'
-              src='<%= image_path 'add_arrow.png' %>'
-              alt='<%= j raw I18n.t('add_graders') %>'
-              onClick={this.performAction}
-              type='image'
-            />
-            <img id='unassign'
-              className='image_input'
-              src='<%= image_path 'remove_arrow.png' %>'
-              alt='<%= j raw I18n.t('remove_graders') %>'
-              onClick={this.performAction}
-              type='image'
-            />
+            <div id = 'icon1'>
+              <input id='random_assign'
+                className='image_input'
+                src='<%= image_path 'random_arrow.png' %>'
+                title='<%= j raw I18n.t('groups.randomly_assign_graders') %>'
+                alt='<%= j raw I18n.t('groups.randomly_assign_graders') %>'
+                onClick={this.performAction}
+                type='image'
+              />
+            </div>
+            <div id = 'icon2'>
+              <input id='assign'
+                className='image_input'
+                src='<%= image_path 'add_arrow.png' %>'
+                title='<%= j raw I18n.t('add_graders') %>'
+                alt='<%= j raw I18n.t('add_graders') %>'
+                onClick={this.performAction}
+                type='image'
+              />
+            </div>
+            <div id = 'icon3'>
+              <input id='unassign'
+                className='image_input'
+                src='<%= image_path 'remove_arrow.png' %>'
+                title='<%= j raw I18n.t('remove_graders') %>'
+                alt='<%= j raw I18n.t('remove_graders') %>'
+                onClick={this.performAction}
+                type='image'
+              />
+            </div>
           </div>
         </div>
       );

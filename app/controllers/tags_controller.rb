@@ -3,6 +3,8 @@ class TagsController < ApplicationController
 
   before_filter :authorize_only_for_admin
 
+  layout 'assignment_content'
+
   def index
     @assignment = Assignment.find(params[:assignment_id])
 
@@ -28,12 +30,12 @@ class TagsController < ApplicationController
       user: @current_user)
 
     if new_tag.save
-      flash[:success] = I18n.t('tags.create.successful')
+      flash_message(:success, I18n.t('tags.create.successful'))
       if params[:grouping_id]
         create_grouping_tag_association(params[:grouping_id], new_tag)
       end
     else
-      flash[:error] = I18n.t('tags.create.error')
+      flash_message(:error, I18n.t('tags.create.error'))
     end
 
     redirect_to :back
@@ -41,6 +43,19 @@ class TagsController < ApplicationController
 
   def get_all_tags
     Tag.all
+  end
+
+  # Update a particular tag.
+  def update_tag
+    @tag = Tag.find(params[:id])
+    @tag.name = params[:update_tag][:name]
+    @tag.description = params[:update_tag][:description]
+    if @tag.save
+      flash_message(:success, I18n.t('tags.create.successful'))
+      redirect_to :back
+    else
+      flash_message(:error, I18n.t('tags.create.error'))
+    end
   end
 
   # Destroys a particular tag.
@@ -67,12 +82,17 @@ class TagsController < ApplicationController
 
   def download_tag_list
     # Gets all the tags
-    tags = Tag.all(order: 'name')
+    tags = Tag.all.order(:name)
 
-    # Gets what type of format.
     case params[:format]
     when 'csv'
-      output = Tag.generate_csv_list(tags)
+      output = MarkusCSV.generate(tags) do |tag|
+        user = User.find(tag.user)
+
+        [tag.name,
+         tag.description,
+         "#{user.first_name} #{user.last_name}"]
+      end
       format = 'text/csv'
     when 'yaml'
       output = export_tags_yaml
@@ -88,7 +108,7 @@ class TagsController < ApplicationController
     send_data(output,
               type: format,
               filename: "tag_list.#{params[:format]}",
-              disposition: 'inline')
+              disposition: 'attachment')
   end
 
   # Export a YAML formatted string.
@@ -123,29 +143,22 @@ class TagsController < ApplicationController
     # Gets parameters for the upload
     file = params[:csv_tags]
     encoding = params[:encoding]
-
-    if request.post? && !file.blank?
-      begin
-        Tag.transaction do
-          invalid_lines = []
-          nb_updates = Tag.parse_csv(file,
-                                     @current_user,
-                                     invalid_lines,
-                                     encoding)
-          unless invalid_lines.empty?
-            flash[:error] = I18n.t('csv_invalid_lines') +
-                            invalid_lines.join(', ')
-          end
-          if nb_updates > 0
-            flash[:success] = I18n.t('tags.upload.upload_success',
-                                     nb_updates: nb_updates)
+    if file
+      Tag.transaction do
+        result = MarkusCSV.parse(file.read, encoding: encoding) do |row|
+          unless CSV.generate_line(row).strip.empty?
+            Tag.create_or_update_from_csv_row(row, @current_user)
           end
         end
-      rescue CSV::MalformedCSVError
-        flash[:error] = t('csv.upload.malformed_csv')
-      rescue ArgumentError
-        flash[:error] = I18n.t('csv.upload.non_text_file_with_csv_extension')
+        unless result[:invalid_lines].empty?
+          flash_message(:error, result[:invalid_lines])
+        end
+        unless result[:valid_lines].empty?
+          flash_message(:success, result[:valid_lines])
+        end
       end
+    else
+      flash_message(:error, I18n.t('csv.invalid_csv'))
     end
     redirect_to :back
   end
@@ -163,15 +176,15 @@ class TagsController < ApplicationController
 
       # Handles errors associated with loads.
       rescue Psych::SyntaxError => e
-        flash[:error] = I18n.t('tags.upload.error') + '  ' +
-            I18n.t('tags.upload.syntax_error', error: "#{e}")
+        flash_message(:error, I18n.t('tags.upload.error') + '  ' +
+            I18n.t('tags.upload.syntax_error', error: "#{e}"))
         redirect_to :back
         return
       end
 
       unless tags
-        flash[:error] = I18n.t('tags.upload.error') +
-            '  ' + I18n.t('tags.upload.empty_error')
+        flash_message(:error, I18n.t('tags.upload.error') +
+            '  ' + I18n.t('tags.upload.empty_error'))
         redirect_to :back
         return
       end
@@ -204,12 +217,12 @@ class TagsController < ApplicationController
       end
 
       if successes < tags.length
-        flash[:error] = I18n.t('tags.upload.error') + bad_names
+        flash_message(:error, I18n.t('tags.upload.error') + bad_names)
       end
 
       # Displays the tags that are successful.
       if successes > 0
-        flash[:success] = I18n.t('tags.upload.upload_success', nb_updates: successes)
+        flash_message(:success, I18n.t('tags.upload.upload_success', nb_updates: successes))
       end
     end
 

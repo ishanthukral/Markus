@@ -37,9 +37,9 @@ class TATest < ActiveSupport::TestCase
   end
 
   should 'ignore duplicates in the CSV file' do
-    new_user = Ta.new({:user_name => 'exist_user',
-                       :first_name => 'Nelle',
-                       :last_name => 'Varoquaux'})
+    new_user = Ta.new({user_name: 'exist_user',
+                       first_name: 'Nelle',
+                       last_name: 'Varoquaux'})
 
     assert new_user.save, 'Could not create a new User'
 
@@ -61,9 +61,9 @@ class TATest < ActiveSupport::TestCase
     setup do
       @assignment = Assignment.make
       @ta = Ta.make
-      @grouping = Grouping.make(:assignment => @assignment)
-      TaMembership.make(:grouping => @grouping,
-                        :user => @ta)
+      @grouping = Grouping.make(assignment: @assignment)
+      TaMembership.make(grouping: @grouping,
+                        user: @ta)
     end
 
 
@@ -79,11 +79,7 @@ class TATest < ActiveSupport::TestCase
   context 'If repo admin' do
 
     setup do
-      conf = Hash.new
-      conf['IS_REPOSITORY_ADMIN'] = true
-      conf['REPOSITORY_STORAGE'] = MarkusConfigurator.markus_config_repository_storage
-      conf['REPOSITORY_PERMISSION_FILE'] = MarkusConfigurator.markus_config_repository_permission_file
-      @repo = Repository.get_class(markus_config_repository_type, conf)
+      @repo = Repository.get_class(markus_config_repository_type)
       MarkusConfigurator.stubs(:markus_config_repository_admin?).returns(true)
     end
 
@@ -112,12 +108,8 @@ class TATest < ActiveSupport::TestCase
   context 'If not repository admin' do
 
     setup do
-      # set repository_admin false
-      conf = Hash.new
-      conf['IS_REPOSITORY_ADMIN'] = false
-      conf['REPOSITORY_STORAGE'] = MarkusConfigurator.markus_config_repository_storage
-      conf['REPOSITORY_PERMISSION_FILE'] = MarkusConfigurator.markus_config_repository_permission_file
-      @repo = Repository.get_class(markus_config_repository_type, conf)
+      # set repository_admin false (NOT SURE HOW TO DO THIS NOW)
+      @repo = Repository.get_class(markus_config_repository_type)
       MarkusConfigurator.stubs(:markus_config_repository_admin?).returns(false)
     end
 

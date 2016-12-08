@@ -6,9 +6,9 @@ class StudentsController < ApplicationController
   def note_message
     @student = Student.find(params[:id])
     if params[:success]
-      flash[:success] = I18n.t('notes.create.success')
+      flash_message(:success, I18n.t('notes.create.success'))
     else
-      flash[:error] = I18n.t('notes.error')
+      flash_message(:error, I18n.t('notes.error'))
     end
   end
 
@@ -30,19 +30,19 @@ class StudentsController < ApplicationController
 
   def edit
     @user = Student.find_by_id(params[:id])
-    @sections = Section.all(order: 'name')
+    @sections = Section.order(:name)
   end
 
   def update
     @user = Student.find_by_id(params[:id])
     # update_attributes supplied by ActiveRecords
     if @user.update_attributes(user_params)
-      flash[:success] = I18n.t('students.update.success',
-                               user_name: @user.user_name)
+      flash_message(:success, I18n.t('students.update.success',
+                                     user_name: @user.user_name))
       redirect_to action: 'index'
     else
-      flash[:error] = I18n.t('students.update.error')
-      @sections = Section.all(order: 'name')
+      flash_message(:error, I18n.t('students.update.error'))
+      @sections = Section.order(:name)
       render :edit
     end
   end
@@ -66,13 +66,14 @@ class StudentsController < ApplicationController
       end
       head :ok
     rescue RuntimeError => e
-      render text: e.message, status: 500
+      flash_now(:error, e.message)
+      head 500
     end
   end
 
   def new
     @user = Student.new
-    @sections = Section.all(order: 'name')
+    @sections = Section.order(:name)
   end
 
   def create
@@ -81,12 +82,12 @@ class StudentsController < ApplicationController
     # by the HTML form with the help of ActiveView::Helper::
     @user = Student.new(user_params)
     if @user.save
-      flash[:success] = I18n.t('students.create.success',
-                               user_name: @user.user_name)
+      flash_message(:success, I18n.t('students.create.success',
+                                     user_name: @user.user_name))
       redirect_to action: 'index' # Redirect
     else
-      @sections = Section.all(order: 'name')
-      flash[:error] = I18n.t('students.create.error')
+      @sections = Section.order(:name)
+      flash_message(:error, I18n.t('students.create.error'))
       render :new
     end
   end
@@ -98,42 +99,52 @@ class StudentsController < ApplicationController
      @section = Section.new
   end
 
-  #downloads users with the given role as a csv list
+  # downloads students as a csv list
   def download_student_list
-    #find all the users
-    students = Student.all(order: 'user_name')
+    students = Student.order(:user_name).includes(:section)
     case params[:format]
-    when 'csv'
-      output = User.generate_csv_list(students)
-      format = 'text/csv'
-    when 'xml'
-      output = students.to_xml
-      format = 'text/xml'
-    else
-      # Raise exception?
-      output = students.to_xml
-      format = 'text/xml'
+      when 'csv'
+        output = MarkusCSV.generate(students) do |student|
+          info = [student.user_name, student.last_name, student.first_name]
+          unless student.section.nil?
+            info << student.section.name
+          end
+          info
+        end
+        format = 'text/csv'
+      when 'xml'
+        output = students.to_xml
+        format = 'text/xml'
+      else
+        # Raise exception?
+        output = students.to_xml
+        format = 'text/xml'
     end
-    send_data(output, type: format, disposition: 'inline')
+    send_data(output, type: format, disposition: 'attachment')
   end
 
   def upload_student_list
-    if request.post? && !params[:userlist].blank?
-      begin
-        result = User.upload_user_list(Student, params[:userlist], params[:encoding])
-        if result[:invalid_lines].size > 0
-          flash[:error] = I18n.t('csv_invalid_lines') +
-            result[:invalid_lines].join(', ')
+    if params[:userlist]
+      User.transaction do
+        processed_users = []
+        result = MarkusCSV.parse(params[:userlist],
+                                 skip_blanks: true,
+                                 row_sep: :auto,
+                                 encoding: params[:encoding]) do |row|
+          next if CSV.generate_line(row).strip.empty?
+          raise CSVInvalidLineError if processed_users.include?(row[0])
+          raise CSVInvalidLineError if User.add_user(Student, row).nil?
+          processed_users.push(row[0])
         end
-        flash[:success] = result[:upload_notice]
-      rescue CSV::MalformedCSVError
-        flash[:error] = t('csv.upload.malformed_csv')
-      rescue ArgumentError
-        flash[:error] = I18n.t('csv.upload.non_text_file_with_csv_extension')
-      rescue RuntimeError
-        flash[:notice] = I18n.t('csv_valid_format')
+        unless result[:invalid_lines].empty?
+          flash_message(:error, result[:invalid_lines])
+        end
+        unless result[:valid_lines].empty?
+          flash_message(:success, result[:valid_lines])
+        end
       end
-
+    else
+      flash_message(:error, I18n.t('csv.invalid_csv'))
     end
     redirect_to action: 'index'
   end

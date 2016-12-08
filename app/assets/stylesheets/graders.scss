@@ -2,6 +2,8 @@
 
 @import 'common/columns';
 
+@import 'common/assignment_dropdown';
+
 
 .col-left {
   width: 40%;
@@ -17,4 +19,16 @@
 
 .new_group {
   float: right;
+}
+
+.graders-to-criteria {
+  padding-bottom: 5px;
+}
+
+.grader-summary-graph {
+  display: inline-block;
+}
+
+.grader-summary-content {
+  text-align: center;
 }

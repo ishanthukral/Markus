@@ -1,30 +1,31 @@
 <%= content_for :head do %>
-  <%= javascript_include_tag 'Graders/index',
-                             'help_system' %>
+  <%= javascript_include_tag 'Graders/index' %>
+  <%= stylesheet_link_tag('clickable') %>
 
   <%= render partial: 'graders_action_column', formats: [:'js.jsx'], handlers: [:erb] %>
   <%= render partial: 'graders_table', formats: [:'js.jsx'], handlers: [:erb] %>
   <%= render partial: 'graders_manager', formats: [:'js.jsx'], handlers: [:erb] %>
 <% end %>
 
-<div class='title_bar'>
-  <h1>
+<% content_for :title do %>
     <%= t('graders.manage_graders') %>
     <span class='title-help assignment_graders_help'>
       <p class='help-message-title assignment_graders_help'>
         <%= t('assignment.help.graders') %>
       </p>
     </span>
-  </h1>
+<% end %>
 
-  <div class='heading_buttons'>
-    <%= link_to_function t('download'), 'modal_download.open();' %>
-    <span class='menu_bar'></span>
-    <%= link_to_function t('upload'), 'modal_upload.open();' %>
-  </div>
-</div>
+<% @heading_buttons = [
+  { link_text: t('download'),
+    link_path: '#',
+    html_options: { onclick: 'modal_download.open();' } },
+  { link_text: t('upload'),
+    link_path: '#',
+    html_options: { onclick: 'modal_upload.open();' } },
+] %>
 
-<div class="wrapLeft"></div>
+
 <div class="clear"></div>
 
 
@@ -42,81 +43,13 @@
     <h3><%= t('groups.warning') %></h3>
     <div id='global_action_warning_msg'></div>
   </div>
-
-  <%# All other flash messages %>
-  <%= render 'shared/flash_message' %>
 </div>
 
 <div id='graders_manager'></div>
 
-<!-- Modal Windows -->
-
-<aside class='dialog' id="download_dialog">
-  <h2><%= t('groups.download.download_grader_maps') %></h2>
-  <ul>
-    <li>
-      <%= link_to t('groups.download.download_grader_groups_csv'),
-                  download_grader_groupings_mapping_assignment_graders_path(@assignment),
-                  onclick: 'modal_download.close();' %>
-    </li>
-    <li>
-      <%= link_to t('groups.download.download_grader_criteria_csv'),
-                  download_grader_criteria_mapping_assignment_graders_path(@assignment),
-                  onclick: 'modal_download.close();' %>
-      </li>
-  </ul>
-
-  <section class='dialog-actions'>
-    <%= button_to_function I18n.t('cancel'), 'modal_download.close();' %>
-  </section>
-</aside>
-
-<aside class='dialog' id="upload_dialog">
-  <!-- Script for disabling upload buttons. -->
-  <%= javascript_include_tag 'upload_button_control.js',
-                             id: 'upload_script',
-                             upload_id: 'grader_mapping',
-                             button_id: 'upload' %>
-
-  <h2><%= I18n.t("groups.upload.upload_grader_map") %></h2>
-  <%= raw(I18n.t("groups.upload.description_grader_map")) %>
-  <%= form_tag({controller:"graders",
-    action: 'csv_upload_grader_groups_mapping',id: @assignment.id},
-    {multipart: true}) do %>
-    <p>
-      <%= t("encoding") %>
-      <%= select_tag(:encoding, options_for_select(@encodings)) %>
-    </p>
-    <%= file_field_tag :grader_mapping, size: 2 %>
-
-    <section class='dialog-actions'>
-      <%= submit_tag t(:upload),
-                     data: { disable_with: t(:uploading_please_wait) },
-                     disabled: true,
-                     id: 'upload'  %>
-      <%= button_to_function I18n.t('cancel'), 'modal_upload.close();' %>
-    </section>
-  <% end %>
-
-  <% if @assignment.assign_graders_to_criteria %>
-    <h2><%= t("groups.upload.upload_grader_criteria_map") %></h2>
-    <%= raw(t("groups.upload.description_grader_criteria_map")) %>
-    <%= form_tag({controller:"graders",
-      action: 'csv_upload_grader_criteria_mapping',id: @assignment.id},
-      {multipart: true}) do %>
-      <p>
-        <%= t("encoding") %>
-        <%= select_tag(:encoding, options_for_select(@encodings)) %>
-      </p>
-      <%= file_field_tag :grader_criteria_mapping, size: 2 %>
-
-      <section class='dialog-actions'>
-        <%= submit_tag t(:upload), data: { disable_with: t(:uploading_please_wait) } %>
-        <%= button_to_function I18n.t('cancel'), 'modal_upload.close();' %>
-      </section>
-    <% end %>
-  <% end %>
-</aside>
+<!-- Modals -->
+<%= render partial: 'download_modal', layout: 'layouts/modal_dialog'  %>
+<%= render partial: 'upload_modal', layout: 'layouts/modal_dialog'  %>
 
 <aside class='dialog' id="groups_coverage_dialog"></aside>
 <aside class='dialog' id="grader_criteria_dialog"></aside>

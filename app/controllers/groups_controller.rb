@@ -12,12 +12,14 @@ class GroupsController < ApplicationController
   auto_complete_for :student, :user_name
   auto_complete_for :assignment, :name
 
+  layout 'assignment_content'
+
   def note_message
     @assignment = Assignment.find(params[:id])
     if params[:success]
-      flash[:notice] = I18n.t('notes.create.success')
+      flash_message(:success, I18n.t('notes.create.success'))
     else
-      flash[:error] = I18n.t('notes.error')
+      flash_message(:error, I18n.t('notes.error'))
     end
   end
 
@@ -25,9 +27,10 @@ class GroupsController < ApplicationController
   # Verify that all functions below are included in the authorize filter above
 
   def new
-    @assignment = Assignment.find(params[:assignment_id])
+    assignment = Assignment.find(params[:assignment_id])
     begin
-      @assignment.add_group(params[:new_group_name])
+      assignment.add_group(params[:new_group_name])
+      flash_now(:success, I18n.t('groups.rename_group.success'))
     rescue Exception => e
       flash[:error] = e.message
     ensure
@@ -42,35 +45,19 @@ class GroupsController < ApplicationController
     @assignment = grouping.assignment
     @errors = []
     @removed_groupings = []
-    students_to_remove = grouping.students.all
-		grouping.student_memberships.all.each do |member|
-			grouping.remove_member(member.id)
-		end
+    students_to_remove = grouping.students.to_a
+    grouping.student_memberships.each do |member|
+      grouping.remove_member(member.id)
+    end
     # TODO: return errors through request
     if grouping.has_submission?
         @errors.push(grouping.group.group_name)
     else
       grouping.delete_grouping
       @removed_groupings.push(grouping)
+      flash_message(:success, I18n.t('groups.delete'))
     end
     head :ok
-  end
-
-  def upload_dialog
-    @assignment = Assignment.find(params[:id])
-    render partial: 'groups/modal_dialogs/upload_dialog', handlers: [:rjs]
-  end
-
-  def download_dialog
-    @assignment = Assignment.find(params[:id])
-    render partial: 'groups/modal_dialogs/download_dialog', handlers: [:rjs]
-  end
-
-  def rename_group_dialog
-    @assignment = Assignment.find(params[:assignment_id])
-    # id is really the grouping_id, this is due to rails routing
-    @grouping_id = params[:id]
-    render partial: 'groups/modal_dialogs/rename_group_dialog', handlers: [:rjs]
   end
 
   def rename_group
@@ -80,8 +67,7 @@ class GroupsController < ApplicationController
     @group = @grouping.group
 
     # Checking if a group with this name already exists
-    if (@groups = Group.first(conditions: {group_name:
-    [params[:new_groupname]]}))
+    if (@groups = Group.where(group_name: params[:new_groupname]).first)
        existing = true
        groupexist_id = @groups.id
     end
@@ -89,7 +75,9 @@ class GroupsController < ApplicationController
     unless existing
       # We update the group_name
       @group.group_name = params[:new_groupname]
-      @group.save
+      if @group.save
+        flash_message(:success, I18n.t('groups.rename_group.success'))
+      end
     else
 
       # We link the grouping to the group already existing
@@ -99,9 +87,8 @@ class GroupsController < ApplicationController
       params[:groupexist_id] = groupexist_id
       params[:assignment_id] = @assignment.id
 
-      if Grouping.all(conditions: ["assignment_id =
-      :assignment_id and group_id = :groupexist_id", {groupexist_id:
-      groupexist_id, assignment_id: @assignment.id}])
+      if Grouping.where(assignment_id: @assignment.id, group_id: groupexist_id)
+                 .to_a
          flash[:error] = I18n.t('groups.rename_group.already_in_use')
       else
         @grouping.update_attribute(:group_id, groupexist_id)
@@ -125,8 +112,9 @@ class GroupsController < ApplicationController
 
   def index
     @assignment = Assignment.find(params[:assignment_id])
-    @all_assignments = Assignment.all(order: :id)
-    render 'index'
+    @clone_assignments = Assignment.where(allow_web_submits: false)
+                                   .where.not(id: @assignment.id)
+                                   .order(:id)
   end
 
   def populate
@@ -142,103 +130,93 @@ class GroupsController < ApplicationController
   # repository name. If MarkUs is not repository admin, the repository name as
   # specified by the second field will be used instead.
   def csv_upload
-    file = params[:group][:grouplist]
-    @assignment = Assignment.find(params[:assignment_id])
-    encoding = params[:encoding]
-    if request.post? && !params[:group].blank?
+    if params[:group] && params[:group][:grouplist]
+      file = params[:group][:grouplist]
+      encoding = params[:encoding]
+      @assignment = Assignment.find(params[:assignment_id])
       # Transaction allows us to potentially roll back if something
       # really bad happens.
       ActiveRecord::Base.transaction do
-        file = file.utf8_encode(encoding)
-        # Old groupings get wiped out
-        if !@assignment.groupings.nil? && @assignment.groupings.length > 0
-          @assignment.groupings.destroy_all
+        # Loop over each row, which lists the members to be added to the group.
+        result = MarkusCSV.parse(file.read, encoding: encoding) do |row|
+          @assignment.add_csv_group(row)
         end
-        begin
-          # Loop over each row, which lists the members to be added to the group.
-          CSV.parse(file).each_with_index do |row, line_nr|
-            begin
-              # Potentially raises CSVInvalidLineError
-              collision_error = @assignment.add_csv_group(row)
-              unless collision_error.nil?
-                flash_message(:error, I18n.t('csv.line_nr_csv_file_prefix',
-                  { line_number: line_nr + 1 }) + " #{collision_error}")
-              end
-            rescue CSVInvalidLineError => e
-              flash_message(:error, I18n.t('csv.line_nr_csv_file_prefix',
-                { line_number: line_nr + 1 }) + " #{e.message}")
-            end
-          end
-          @assignment.reload # Need to reload to get newly created groupings
-          number_groupings_added = @assignment.groupings.length
-          if number_groupings_added > 0 && flash[:error].is_a?(Array)
-            invalid_lines_count = flash[:error].length
-            flash[:notice] = I18n.t('csv.groups_added_msg', { number_groups:
-              number_groupings_added, number_lines: invalid_lines_count })
-          end
-        rescue CSV::MalformedCSVError
-          flash[:error] = t('csv.upload.malformed_csv')
-          raise ActiveRecord::Rollback
-        rescue ArgumentError
-          flash[:error] = I18n.t('csv.upload.non_text_file_with_csv_extension')
-          raise ActiveRecord::Rollback
-        rescue Exception
-          # We should only get here if something *really* bad/unexpected
-          # happened.
-          flash_message(:error, I18n.t('csv.groups_unrecoverable_error'))
-          raise ActiveRecord::Rollback
+        unless result[:invalid_lines].empty?
+          flash_message(:error, result[:invalid_lines])
+        end
+        unless result[:valid_lines].empty?
+          flash_message(:success, result[:valid_lines])
         end
       end
       # Need to reestablish repository permissions.
       # This is not handled by the roll back.
-      @assignment.update_repository_permissions_forall_groupings
+
+      # The generation of the permissions file has been moved out of the transaction
+      # for performance reasons. Because the groups are being created as part of
+      # this transaction, the race condition of the repos being created before the
+      # permissions are set should not be a problem.
+      repo = Repository.get_class(MarkusConfigurator.markus_config_repository_type)
+      repo.__set_all_permissions
+    else
+      flash_message(:error, I18n.t('csv.invalid_csv'))
     end
     redirect_to action: 'index', id: params[:id]
   end
 
+  def create_groups_when_students_work_alone
+    @assignment = Assignment.find(params[:assignment_id])
+    if @assignment.group_max == 1
+      @current_job = CreateIndividualGroupsForAllStudentsJob.perform_later @assignment
+    end
+    respond_to do |format|
+      format.js {}
+    end
+  end
+
   def download_grouplist
     assignment = Assignment.find(params[:assignment_id])
+    groupings = assignment.groupings.includes(:group,
+                                              student_memberships: [:user])
 
-    #get all the groups
-    groupings = assignment.groupings #FIXME: optimize with eager loading
+    file_out = MarkusCSV.generate(groupings) do |grouping|
+      # csv format is group_name, repo_name, user1_name, user2_name, ... etc
+      [grouping.group.group_name, grouping.group.repo_name].concat(
+        grouping.student_memberships.map do |member|
+          member.user.user_name
+        end
+      )
+    end
 
-    file_out = CSV.generate do |csv|
-       groupings.each do |grouping|
-         group_array = [grouping.group.group_name, grouping.group.repo_name]
-         # csv format is group_name, repo_name, user1_name, user2_name, ... etc
-         grouping.student_memberships.all(include: :user).each do |member|
-            group_array.push(member.user.user_name)
-         end
-         csv << group_array
-       end
-     end
-
-    send_data(file_out, type: 'text/csv', disposition: 'inline')
+    send_data(file_out,
+              type: 'text/csv',
+              filename: "#{assignment.short_identifier}_group_list.csv",
+              disposition: 'attachment')
   end
 
   def use_another_assignment_groups
-    @target_assignment = Assignment.find(params[:assignment_id])
-    source_assignment = Assignment.find(params[:clone_groups_assignment_id])
+    target_assignment = Assignment.find(params[:assignment_id])
+    source_assignment = Assignment.find(params[:clone_assignment_id])
 
     if source_assignment.nil?
-      flash[:warning] = I18n.t('groups.csv.could_not_find_source')
-    end
-    if @target_assignment.nil?
-      flash[:warning] = I18n.t('groups.csv.could_not_find_target')
+      flash_message(:warning, t('groups.csv.could_not_find_source'))
+    elsif target_assignment.nil?
+      flash_message(:warning, t('groups.csv.could_not_find_target'))
+    else
+      # Clone the groupings
+      target_assignment.clone_groupings_from(source_assignment.id)
     end
 
-    # Clone the groupings
-    @target_assignment.clone_groupings_from(source_assignment.id)
+    redirect_to :back
   end
 
   # These actions act on all currently selected students & groups
   def global_actions
-    assignment = Assignment.find(params[:assignment_id],
-                                  include: [{
+    assignment = Assignment.includes([{
                                       groupings: [{
                                           student_memberships: :user,
                                           ta_memberships: :user},
                                         :group]}])
+                            .find(params[:assignment_id])
     action = params[:global_actions]
     grouping_ids = params[:groupings]
     student_ids = params[:students]
@@ -276,7 +254,8 @@ class GroupsController < ApplicationController
       end
       head :ok
     rescue => e
-      render text: e.message, status: 400
+      flash_now(:error, e.message)
+      head 400
     end
   end
 
@@ -313,8 +292,8 @@ class GroupsController < ApplicationController
       # Remove each student from every group.
       students_to_remove = []
       groupings.each do |grouping|
-        students_to_remove = students_to_remove.concat(grouping.students.all)
-        grouping.student_memberships.all.each do |mem|
+        students_to_remove = students_to_remove.concat(grouping.students.to_a)
+        grouping.student_memberships.each do |mem|
           grouping.remove_member(mem.id)
         end
         grouping.delete_grouping

@@ -6,6 +6,7 @@ require 'rspec/rails'
 require 'repo/repository'
 require 'repo/git_repository'
 require 'repo/subversion_repository'
+require 'database_cleaner'
 
 # Requires supporting ruby files with custom matchers and macros, etc,
 # in spec/support/ and its subdirectories.
@@ -39,7 +40,15 @@ RSpec.configure do |config|
   # If you're not using ActiveRecord, or you'd prefer not to run each of your
   # examples within a transaction, remove the following line or assign false
   # instead of true.
-  config.use_transactional_fixtures = true
+  config.use_transactional_fixtures = false
+  config.before :each do
+    DatabaseCleaner.strategy = :truncation
+    DatabaseCleaner.clean_with(:truncation)
+  end
+  config.after :each do
+    DatabaseCleaner.strategy = :transaction
+    DatabaseCleaner.clean_with(:truncation)
+  end
 
   # If true, the base class of anonymous controllers will be inferred
   # automatically. This will be the default behavior in future versions of
@@ -58,7 +67,13 @@ RSpec.configure do |config|
   end
 
   config.before(:suite) do
-    ActiveRecord::Base.connection.tables.each { |table| ActiveRecord::Base.connection.execute("TRUNCATE #{table}") }
+    DatabaseCleaner.clean_with :truncation
+  end
+
+  RSpec::Matchers.define :same_time_within_ms do |e|
+    match do |a|
+      e.to_i == a.to_i
+    end
   end
 
   # Get fixture_file_upload to work with RSPEC. See http://bit.ly/1yQfoS5

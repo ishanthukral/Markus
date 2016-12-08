@@ -3,8 +3,13 @@
   <%= stylesheet_link_tag('grader') %>
   <%= stylesheet_link_tag('pdfjs/viewer') %>
 
+  <%= javascript_include_tag 'Results/file_selector' %>
   <%= javascript_include_tag 'panes' %>
   <%= javascript_include_tag 'pdfjs' %>
+
+  <%= javascript_tag do -%>
+    PDFJS.workerSrc = "<%= @host %>/assets/pdfjs_lib/pdf.worker.js";
+  <% end -%>
 <% end %>
 
 <% # UI LIBRARIES %>
@@ -28,11 +33,11 @@
            handlers: [:erb] %>
 
 <script>
-//<![CDATA[
   var modalNotesGroup = null;
 
   jQuery(document).ready(function() {
     window.modalNotesGroup = new ModalMarkus('#notes_dialog');
+    window.modal_download = new ModalMarkus('#download_files_dialog');
 
     // Set up the 'working' notices
     jQuery('#working').ajaxStart(function() {
@@ -46,30 +51,31 @@
     // If the mark_description div is empty, that means it isn't marked
     // Hide the criterion that AREN'T empty (i.e. are marked)
     // Check if the marks are released, if they are there is nothing to hide
-    if (document.getElementById('released') === null ||
-        !document.getElementById('released').checked) {
-      jQuery('.mark_description').each(function() {
-        if (this.innerHTML.trim()) {
-          hide_criterion(parseInt(this.getAttribute('data-id'), 10));
-        }
+    <% unless @result.released_to_students %>
+      jQuery('.mark_criterion_level_container').each(function() {
+        expand_unmarked(this, 'RubricCriterion');
       });
-    }
+      jQuery('.mark_grade_input').each(function() {
+        expand_unmarked(this, 'FlexibleCriterion');
+      });
+      jQuery('.mark_grade_input_checkbox_container').each(function() {
+        expand_unmarked(this, 'CheckboxCriterion');
+      });
+    <% end %>
   });
 
   function check_working() {
     return '<%= t(:still_working_warning) %>';
   }
-//]]>
 </script>
 
 <% # Javascript for showing/hiding old marks %>
 <%= render partial: 'results/common/old_marks_view_functions',
            formats: [:html] %>
 
-<% # Javascript for test result window %>
-<%= render partial: 'assignments/test_result_window',
-           formats: [:html],
-           locals: { aid: @assignment.id } %>
+<% # Javascript for feedback file window %>
+<%= render partial: 'assignments/feedback_file_window',
+           formats: [:js] %>           
 
 <%= render partial: 'results/common/annotations',
            formats: [:js] %>
@@ -84,6 +90,14 @@
 
 <!-- Dialogs -->
 <aside class='dialog' id='notes_dialog'></aside>
+<aside class='dialog' id='download_files_dialog'>
+  <h1><%= 'Download Files' %></h1>
+
+  <%= render partial: 'results/common/download_file_selector',
+             locals: { files: @files,
+                       can_download: true } %>
+
+</aside>
 <% if @current_user.admin? %>
   <aside class='dialog' id='create_new_tag'>
     <%= javascript_include_tag 'Tags/text_updater.js',
@@ -96,7 +110,7 @@
     <p><%= t('tags.create.tag_prompt') %></p>
     <%= form_for :create_new,
                  url: assignment_tags_path(@assignment),
-                 html: { multipart: true, size: 1 } do |f| %>
+                 html: { multipart: true } do |f| %>
         <div>
           <p><%= f.text_field :name,
                               placeholder: t('tags.create.name_prompt') %></p>
@@ -126,7 +140,7 @@
     <p><%= t('tags.delete.tag_prompt') %></p>
     <%= form_for :delete,
                  url: assignment_tags_path(@assignment),
-                 html: { multipart: true, size: 1 } do |f| %>
+                 html: { multipart: true } do |f| %>
 
     <% end %>
     <input type='reset'
@@ -139,8 +153,16 @@
   <h1>
     <%= t('results.title',
           { assignment_name: @assignment.short_identifier,
-            group_name: @grouping.get_group_name }) %>
+            group_name: @current_user.student? ? t('assignment.review') : @grouping.get_group_name }) %>
   </h1>
+
+  <div class='heading_buttons'>
+    <% unless @current_user.is_reviewer_for?(@assignment.pr_assignment, @result) %>
+      <%= link_to t(:download),
+                  'javascript:void(0);',
+                  onclick:'modal_download.open();' %>
+    <% end %>
+  </div>
 </div>
 
 <div class='wrapLeft'>
@@ -170,32 +192,22 @@
 
   <%= render partial: 'results/common/errors' %>
 
-  <div id='file_selector'>
-    <%= render partial: 'results/common/file_selector',
-               locals: { files: @files,
-                         can_download: true } %>
-    <% if @assignment.enable_test %>
-      <div id='test_results_controls'>
-        <%= render partial: 'results/common/test_selector',
-                   locals: { test_result_files: @test_result_files,
-                             result: @result,
-                             submission_id: @submission.id } %>
-      </div>
-    <% end %>
-  </div>
-
   <% if !@result.released_to_students %>
     <%= render partial: 'results/marker/marker_panes',
                locals: { extra_marks_points: @extra_marks_points,
                          extra_marks_percentage: @extra_marks_percentage,
-                         annotation_categories: 
-                           @assignment.annotation_categories,
+                         annotation_categories:
+                           @assignment.annotation_categories.includes(:annotation_texts),
                          result: @result,
                          assignment: @assignment,
                          marks_map: @marks_map,
+                         old_marks_map: @old_marks_map,
                          mark_criteria:@mark_criteria,
                          submission: @submission,
-                         old_result: @old_result } %>
+                         old_result: @old_result,
+                         test_results: @test_results,
+                         files: @files,
+                         feedback_files: @feedback_files} %>
   <% else %>
     <%= render partial: 'results/result_summary',
                formats: [:html],

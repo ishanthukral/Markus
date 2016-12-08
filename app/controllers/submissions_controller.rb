@@ -1,46 +1,36 @@
 require 'zip'
-require 'cgi'
 
 class SubmissionsController < ApplicationController
   include SubmissionsHelper
-  include PaginationHelper
-
-  helper_method :all_assignments_marked?
 
   before_filter :authorize_only_for_admin,
                 except: [:server_time,
-                         :populate_file_manager,
+                         :populate_file_manager_react,
                          :browse,
-                         :index,
                          :file_manager,
                          :update_files,
                          :download,
                          :downloads,
-                         :s_table_paginate,
-                         :collect_and_begin_grading,
                          :download_groupings_files,
+                         :check_collect_status,
                          :manually_collect_and_begin_grading,
-                         :collect_ta_submissions,
                          :repo_browser,
-                         :update_converted_pdfs,
                          :update_submissions,
-                         :populate_submissions_table]
+                         :populate_submissions_table,
+                         :populate_peer_submissions_table]
   before_filter :authorize_for_ta_and_admin,
                 only: [:browse,
-                       :index,
-                       :s_table_paginate,
-                       :collect_and_begin_grading,
                        :manually_collect_and_begin_grading,
-                       :collect_ta_submissions,
                        :repo_browser,
                        :download_groupings_files,
-                       :update_converted_pdfs,
+                       :check_collect_status,
                        :update_submissions,
                        :populate_submissions_table]
   before_filter :authorize_for_student,
                 only: [:file_manager,
-                       :populate_file_manager,
-                       :update_files]
+                       :update_files,
+                       :populate_file_manager_react,
+                       :populate_peer_submissions_table]
   before_filter :authorize_for_user, only: [:download, :downloads]
 
   def repo_browser
@@ -77,24 +67,60 @@ class SubmissionsController < ApplicationController
     # Good idea from git branch. But SubversionRepository has
     # no get_all_revisions method... yet (TODO)
     # hmm. Let's make rev_number a method and have it return an array.
-    #repo.get_all_revisions.each do |revision|
+    # repo.get_all_revisions.each do |revision|
     #  @revisions_history << {num: revision.revision_number,
     #                         date: revision.timestamp}
     rev_number = repo.get_latest_revision.revision_number + 1
-    rev_number.times.each do |rev|
+    assign_path = File.join(@assignment.repository_folder, @path)
+    rev_number.times do |rev|
       begin
         revision = repo.get_revision(rev)
-        unless revision.path_exists?(
-            File.join(@assignment.repository_folder, @path))
+        unless revision.path_exists?(assign_path)
           raise 'error'
         end
       rescue Exception
         revision = nil
       end
-      if revision
+      if revision && (!revision.changed_files_at_path(assign_path).empty? ||
+                      !revision.changed_filenames_at_path(assign_path).empty?)
         @revisions_history << { num: revision.revision_number,
                                 date: revision.timestamp }
+        unless params[:revision_number] || params[:revision_timestamp]
+          @revision_number = revision.revision_number
+          @revision_timestamp = revision.timestamp
+        end
       end
+    end
+
+    if @revisions_history.empty?
+      rev_number.times do |rev|
+        begin
+          revision = repo.get_revision(rev)
+          unless revision.path_exists?(assign_path)
+            raise 'error'
+          end
+        rescue Exception
+          revision = nil
+        end
+        if revision
+          @revisions_history << { num: revision.revision_number,
+                                  date: revision.timestamp }
+          unless params[:revision_number] || params[:revision_timestamp]
+            @revision_number = revision.revision_number
+            @revision_timestamp = revision.timestamp
+          end
+        end
+      end
+    end
+
+    last_rev = @grouping.submissions
+    @last_submission = nil
+    if !last_rev.empty?
+      selected = @revisions_history.select do |rev|
+        rev[:num] == last_rev.last.revision_number
+      end
+
+      @last_submission = selected.empty? ? nil : last_rev.last
     end
 
     respond_to do |format|
@@ -128,7 +154,7 @@ class SubmissionsController < ApplicationController
     set_filebrowser_vars(user_group, @assignment)
   end
 
-  def populate_file_manager
+  def populate_file_manager_react
     @assignment = Assignment.find(params[:assignment_id])
     @grouping = current_user.accepted_grouping_for(@assignment.id)
     user_group = @grouping.group
@@ -136,147 +162,202 @@ class SubmissionsController < ApplicationController
     @path = params[:path] || '/'
     @previous_path = File.split(@path).first
 
-    user_group.access_repo do |repo|
-      if revision_number.nil?
-        @revision = repo.get_latest_revision
-      else
-        @revision = repo.get_revision(revision_number.to_i)
-      end
-      @directories = @revision.directories_at_path(
-          File.join(@assignment.repository_folder, @path))
-      @files = @revision.files_at_path(
-          File.join(@assignment.repository_folder, @path))
-      @table_rows = {}
-      @files.sort.each do |file_name, file|
-        @table_rows[file.object_id] =
-            construct_file_manager_table_row(file_name, file)
-      end
+    repo = user_group.repo
+    if revision_number.nil?
+      @revision = repo.get_latest_revision
+    else
+      @revision = repo.get_revision(revision_number.to_i)
+    end
+    exit_directory = get_exit_directory(@previous_path, @grouping.id,
+                                        revision_number, @revision,
+                                        @assignment.repository_folder,
+                                        'file_manager')
+    full_path = File.join(@assignment.repository_folder, @path)
+    if @revision.path_exists?(full_path)
+      files = @revision.files_at_path(full_path)
+      files_info = get_files_info(files, @assignment.id, revision_number, @path,
+                                  @grouping.id)
 
-      if @grouping.repository_external_commits_only?
-        @directories.sort.each do |directory_name, directory|
-          @table_rows[directory.object_id] =
-              construct_file_manager_dir_table_row(directory_name, directory)
-        end
-      end
-
-      respond_to do |format|
-        format.js
-      end
-
+      directories = @revision.directories_at_path(full_path)
+      directories_info = get_directories_info(directories, revision_number,
+                                              @path, @grouping.id, 'file_manager')
+      render json: exit_directory + files_info + directories_info
+    else
+      render json: exit_directory
     end
   end
 
   def manually_collect_and_begin_grading
     @grouping = Grouping.find(params[:id])
     @revision_number = params[:current_revision_number].to_i
-    SubmissionCollector.instance.manually_collect_submission(@grouping,
-                                                             @revision_number)
-    redirect_to action: 'update_converted_pdfs', id: @grouping.id
+    apply_late_penalty = params[:apply_late_penalty].nil? ?
+                         false : params[:apply_late_penalty]
+    SubmissionsJob.perform_now([@grouping],
+                               apply_late_penalty: apply_late_penalty,
+                               revision_number: @revision_number)
+
+    submission = @grouping.reload.current_submission_used
+    redirect_to edit_assignment_submission_result_path(
+      assignment_id: @grouping.assignment_id,
+      submission_id: submission.id,
+      id: submission.get_latest_result.id)
   end
 
-  def collect_and_begin_grading
-    assignment = Assignment.find(params[:assignment_id])
-    grouping = Grouping.find(params[:id])
-
-    if assignment.submission_rule.can_collect_grouping_now?(grouping)
-      # Push grouping to the priority queue
-      SubmissionCollector.instance.push_grouping_to_priority_queue(grouping)
-      flash[:success] = I18n.t('collect_submissions.priority_given')
-    else
-      flash[:error] = I18n.t('browse_submissions.could_not_collect',
-                             group_name: grouping.group.group_name)
+  def uncollect_all_submissions
+    assignment = Assignment.includes(:groupings).find(params[:assignment_id])
+    @current_job = UncollectSubmissions.perform_later(assignment)
+    respond_to do |format|
+      format.js {}
     end
-    redirect_to action:   'browse',
-                id:       assignment.id
   end
 
-  def collect_all_submissions
-    assignment = Assignment.find(params[:assignment_id], include: [:groupings])
-    if assignment.submission_rule.can_collect_now?
-      submission_collector = SubmissionCollector.instance
-      submission_collector.push_groupings_to_queue(assignment.groupings)
-      flash[:success] =
-          I18n.t('collect_submissions.collection_job_started',
-                 assignment_identifier: assignment.short_identifier)
-    else
-      flash[:error] = I18n.t('collect_submissions.could_not_collect',
-                             assignment_identifier: assignment.short_identifier)
+  def collect_submissions
+    if !params.has_key?(:groupings) || params[:groupings].empty?
+      flash_now(:error, t('results.must_select_a_group_to_collect'))
+      head 400
+      return
     end
-    redirect_to action: 'browse',
-                id: assignment.id
-  end
-
-  def collect_ta_submissions
-    assignment = Assignment.find(params[:assignment_id])
-    if assignment.submission_rule.can_collect_now?
-      groupings = assignment.groupings.all(include: :tas,
-                                           conditions: ['users.id = ?',
-                                                        current_user.id])
-      submission_collector = SubmissionCollector.instance
-      submission_collector.push_groupings_to_queue(groupings)
-      flash[:success] =
-          I18n.t('collect_submissions.collection_job_started',
-                 assignment_identifier: assignment.short_identifier)
-    else
-      flash[:error] = I18n.t('collect_submissions.could_not_collect',
-                             assignment_identifier: assignment.short_identifier)
+    assignment = Assignment.includes(:groupings).find(params[:assignment_id])
+    groupings = assignment.groupings.find(params[:groupings])
+    partition = groupings.partition do |grouping|
+      section = grouping.inviter.present? ? grouping.inviter.section : nil
+      assignment.submission_rule.can_collect_now?(section)
     end
-    redirect_to action: 'browse',
-                id: assignment.id
+    success = ''
+    error = ''
+    if partition[0].count > 0
+      @current_job = SubmissionsJob.perform_later(partition[0])
+      success = I18n.t('collect_submissions.collection_job_started_for_groups',
+                       assignment_identifier: assignment.short_identifier)
+    end
+    if partition[1].count > 0
+      error = I18n.t('collect_submissions.could_not_collect_some',
+                     assignment_identifier: assignment.short_identifier)
+    end
+    flash_now(:success, success) unless success.empty?
+    flash_now(:error, error) unless error.empty?
+
+    render json: { success: success, error: error }
   end
 
-  def update_converted_pdfs
-    @grouping = Grouping.find(params[:grouping_id])
-    @submission = @grouping.current_submission_used
-    @pdf_count = 0
-    @converted_count = 0
-    unless @submission.nil?
-      @submission.submission_files.each do |file|
-        if file.is_pdf?
-          @pdf_count += 1
-          if file.is_converted
-            @converted_count += 1
-          end
+  def run_tests
+    if !params.has_key?(:groupings) || params[:groupings].empty?
+      flash_now(:error, t('results.must_select_a_group'))
+      head 400
+      return
+    end
+    assignment = Assignment.includes(:groupings).find(params[:assignment_id])
+    groupings = assignment.groupings.find(params[:groupings])
+    partition = groupings.partition &:has_submission?
+    if partition[0].count > 0
+      success = I18n.t('automated_tests.tests_running',
+                       assignment_identifier: assignment.short_identifier)
+      error = ''
+      partition[0].each do |g|
+        begin
+          AutomatedTestsClientHelper.request_a_test_run(
+            request.protocol + request.host_with_port,
+            g.id,
+            current_user,
+            g.current_submission_used.id)
+        rescue => e
+          error += "#{g.group.group_name}: #{e.message}. "
         end
       end
     end
+    if partition[1].count > 0
+      flash_now(:error, I18n.t('automated_tests.need_submission'))
+    end
+    render json: { success: success, error: error }
   end
 
+  # The table of submissions for an assignment and related actions and links.
   def browse
     @assignment = Assignment.find(params[:assignment_id])
     @groupings = Grouping.get_groupings_for_assignment(@assignment,
                                                        current_user)
-    @section_column = ''
+    @sections = Section.order(:name)
+    @available_sections = Hash.new
+    if @assignment.submission_rule.can_collect_now?
+      @available_sections[t('groups.unassigned_students')] = 0
+    end
     if Section.all.size > 0
       @section_column = "{
         id: 'section',
-        content: '" + I18n.t(:'browse_submissions.section') + "',
+        content: '#{t(:'browse_submissions.section')}',
         sortable: true
       },"
+      Section.all.each do |section|
+        if @assignment.submission_rule.can_collect_now?(section)
+          @available_sections[section.name] = section.id
+        end
+      end 
+    else
+      @section_column = ''
     end
 
     if @assignment.submission_rule.type == 'GracePeriodSubmissionRule'
       @grace_credit_column = "{
         id: 'grace_credits_used',
-        content: '" + I18n.t(:'browse_submissions.grace_credits_used') + "',
+        content: '#{t(:'browse_submissions.grace_credits_used')}',
         sortable: true,
         compare: compare_numeric_values,
         searchable: false
       },"
+    else
+      @grace_credit_column = ''
     end
+
+    if @assignment.past_all_collection_dates?
+      flash_now(:notice, t('browse_submissions.grading_can_begin'))
+    else
+      if @assignment.section_due_dates_type
+        section_due_dates = Hash.new
+        now = Time.zone.now
+        Section.all.each do |section|
+          collection_time = @assignment.submission_rule
+                                       .calculate_collection_time(section)
+          collection_time = now if now >= collection_time
+          if section_due_dates[collection_time].nil?
+            section_due_dates[collection_time] = Array.new
+          end
+          section_due_dates[collection_time].push(section.name)
+        end
+        section_due_dates.each do |collection_time, sections|
+          sections = sections.join(', ')
+          if(collection_time == now)
+            flash_now(:notice, t('browse_submissions.grading_can_begin_for_sections',
+                                 sections: sections))
+          else
+            flash_now(:notice, t('browse_submissions.grading_can_begin_after_for_sections',
+                                 time: I18n.l(collection_time, format: :long_date),
+                                 sections: sections))
+          end
+        end
+      else
+        collection_time = @assignment.submission_rule.calculate_collection_time
+        flash_now(:notice, t('browse_submissions.grading_can_begin_after',
+                             time: I18n.l(collection_time, format: :long_date)))
+      end
+    end
+    render layout: 'assignment_content'
   end
 
   def populate_submissions_table
-    @assignment = Assignment.find(params[:assignment_id])
-    @groupings = Grouping.get_groupings_for_assignment(@assignment,
-                                                       current_user)
+    assignment = Assignment.find(params[:assignment_id])
+    groupings = Grouping.get_groupings_for_assignment(assignment,
+                                                      current_user)
 
-    render json: get_submissions_table_info(@assignment, @groupings)
+    render json: get_submissions_table_info(assignment, groupings)
   end
 
-  def index
-    @assignments = Assignment.all(order: :id)
-    render :index, layout: 'sidebar'
+  def populate_peer_submissions_table
+    assignment_in = Assignment.find(params[:assignment_id])
+    assignment = assignment_in.is_peer_review? ? assignment_in : assignment_in.pr_assignment
+    groupings = Grouping.get_groupings_for_assignment(assignment,
+                                                      current_user)
+
+    render json: get_submissions_table_info(assignment, groupings)
   end
 
   # update_files action handles transactional submission of files.
@@ -290,19 +371,20 @@ class SubmissionsController < ApplicationController
   # when the state stored in the cookie exceeds 4k in serialized
   # form. This was happening prior to the fix of Github issue #30.
   def update_files
+    assignment_id = params[:assignment_id]
+    @assignment = Assignment.find(assignment_id)
+    unless @assignment.allow_web_submits
+      raise t('student.submission.external_submit_only')
+    end
+
     # We'll use this hash to carry over some error state to the
     # file_manager view.
     @file_manager_errors = Hash.new
-    assignment_id = params[:assignment_id]
-    @assignment = Assignment.find(assignment_id)
     required_files = AssignmentFile.where(
                            assignment_id: @assignment).pluck(:filename)
     students_filename = []
     @path = params[:path] || '/'
     @grouping = current_user.accepted_grouping_for(assignment_id)
-    if @grouping.repository_external_commits_only?
-      raise I18n.t('student.submission.external_submit_only')
-    end
     unless @grouping.is_valid?
       # can't use redirect_to here. See comment of this action for more details.
       set_filebrowser_vars(@grouping.group, @assignment)
@@ -311,11 +393,14 @@ class SubmissionsController < ApplicationController
     end
     unless params[:new_files].nil?
       params[:new_files].each do |f|
-        if f.size > 5000000
+        if f.size > MarkusConfigurator.markus_config_max_file_size
           @file_manager_errors[:size_conflict] =
             "Error occured while uploading file \"" +
              f.original_filename +
-             "\": The size of the uploaded file exceeds the maximum of 5MB."
+             '": The size of the uploaded file exceeds the maximum of ' +
+             "#{(MarkusConfigurator.markus_config_max_file_size/ 1000000.00)
+	          .round(2)}" +
+             'MB.'
           render :file_manager
           return
         end
@@ -335,12 +420,8 @@ class SubmissionsController < ApplicationController
         v1.to_i rescue v1
       end
 
-      # The files that will be replaced - just give an empty array
-      # if params[:replace_files] is nil
-      replace_files = params[:replace_files].nil? ? {} : params[:replace_files]
-
       # The files that will be deleted
-      delete_files = params[:delete_files].nil? ? {} : params[:delete_files]
+      delete_files = params[:delete_files].nil? ? [] : params[:delete_files]
 
       # The files that will be added
       new_files = params[:new_files].nil? ? {} : params[:new_files]
@@ -350,47 +431,56 @@ class SubmissionsController < ApplicationController
 
       log_messages = []
       begin
-        # delete files marked for deletion
-        delete_files.keys.each do |filename|
-          txn.remove(File.join(assignment_folder, filename),
-                     file_revisions[filename])
-          log_messages.push("Student '#{current_user.user_name}'" +
-                                " deleted file '#{filename}' for assignment" +
-                                " '#{@assignment.short_identifier}'.")
+        if new_files.empty?
+          # delete files marked for deletion
+          delete_files.each do |filename|
+            txn.remove(File.join(assignment_folder, filename),
+                       file_revisions[filename])
+            log_messages.push("Student '#{current_user.user_name}'" +
+                              " deleted file '#{filename}' for assignment" +
+                              " '#{@assignment.short_identifier}'.")
+          end
         end
 
-        # Replace files
-        replace_files.each do |filename, file_object|
-          # Sometimes the file pointer of file_object is at the end of the file.
-          # In order to avoid empty uploaded files, rewind it to be save.
-          file_object.rewind
-          txn.replace(File.join(assignment_folder, filename), file_object.read,
-                      file_object.content_type, file_revisions[filename])
-          log_messages.push("Student '#{current_user.user_name}'" +
-                                " replaced content of file '#{filename}'" +
-                                ' for assignment' +
-                                " '#{@assignment.short_identifier}'.")
-        end
+        # Add new files and replace existing files
+        revision = repo.get_latest_revision
+        files = revision.files_at_path(
+          File.join(@assignment.repository_folder, @path))
+        filenames = files.keys
 
-        # Add new files
+
         new_files.each do |file_object|
+          filename = file_object.original_filename
           # sanitize_file_name in SubmissionsHelper
-          if file_object.original_filename.nil?
+          if filename.nil?
             raise I18n.t('student.submission.invalid_file_name')
           end
-          students_filename << file_object.original_filename
-          # Sometimes the file pointer of file_object is at the end of the file.
-          # In order to avoid empty uploaded files, rewind it to be save.
-          file_object.rewind
-          txn.add(File.join(assignment_folder,
-                            sanitize_file_name(file_object.original_filename)),
-                  file_object.read, file_object.content_type)
-          log_messages.push("Student '#{current_user.user_name}'" +
-                                ' submitted file' +
-                                " '#{file_object.original_filename}'" +
-                                ' for assignment ' +
-                                "'#{@assignment.short_identifier}'.")
+
+          # Branch on whether the file is new or a replacement
+          if filenames.include? filename
+            file_object.rewind
+            txn.replace(File.join(assignment_folder, filename), file_object.read,
+                        file_object.content_type, revision.revision_number)
+            log_messages.push("Student '#{current_user.user_name}'" +
+                              " replaced content of file '#{filename}'" +
+                              ' for assignment' +
+                              " '#{@assignment.short_identifier}'.")
+          else
+            students_filename << filename
+            # Sometimes the file pointer of file_object is at the end of the file.
+            # In order to avoid empty uploaded files, rewind it to be save.
+            file_object.rewind
+            txn.add(File.join(assignment_folder,
+                              sanitize_file_name(filename)),
+                    file_object.read, file_object.content_type)
+            log_messages.push("Student '#{current_user.user_name}'" +
+                              ' submitted file' +
+                              " '#{filename}'" +
+                              ' for assignment ' +
+                              "'#{@assignment.short_identifier}'.")
+          end
         end
+
         # check if only required files are allowed for a submission
         unless students_filename.length < 1 ||
                required_files.length == 0 ||
@@ -414,7 +504,7 @@ class SubmissionsController < ApplicationController
           return
         end
         if repo.commit(txn)
-          flash[:success] = I18n.t('update_files.success')
+          flash_message(:success, I18n.t('update_files.success'))
           # flush log messages
           m_logger = MarkusLogger.instance
           log_messages.each do |msg|
@@ -425,7 +515,7 @@ class SubmissionsController < ApplicationController
         end
 
         # Are we past collection time?
-        if @assignment.submission_rule.can_collect_now?
+        if @assignment.submission_rule.can_collect_now?(current_user.section)
           flash[:commit_notice] =
               @assignment.submission_rule.commit_after_collection_message
         end
@@ -475,25 +565,10 @@ class SubmissionsController < ApplicationController
                   filename: params[:file_name]
       else
         # Otherwise, sanitize it for HTML and blast it out to the screen
-        sanitized_contents = CGI.escapeHTML(file_contents)
+        sanitized_contents = ERB::Util.html_escape(file_contents)
         render text: sanitized_contents, layout: 'sanitized_html'
       end
     end
-  end
-
-  ##
-  # Checks if all the assignments for the current submission are marked
-  # returns true if all assignments are marked completely
-  ##
-  def all_assignments_marked?
-    marked = Assignment.joins(groupings: [{ current_submission_used:
-      :results }]).where('assignments.id' => params[:assignment_id],
-                         'results.marking_state' =>
-                             Result::MARKING_STATES[:complete])
-    total_assignments = Assignment.joins(groupings:
-      [{ current_submission_used: :results }]).where('assignments.id' =>
-                                                         params[:assignment_id])
-    marked.size == total_assignments.size
   end
 
   ##
@@ -512,25 +587,11 @@ class SubmissionsController < ApplicationController
     ## delete the old file if it exists
     File.delete(zip_path) if File.exist?(zip_path)
 
-    grouping_ids = params[:groupings]
-
-    ## if there is no grouping, render a message
-    if grouping_ids.blank?
-      render text: t('student.submission.no_groupings_available')
-      return
-    end
-
-    groupings = Grouping.where(id: grouping_ids)
-      .includes(:group,
-                current_submission_used: {
-                  submission_files: {
-                    submission: { grouping: :group }
-                  }
-                })
+    groupings = Grouping.get_groupings_for_assignment(assignment,
+                                                      current_user)
 
     ## build the zip file
     Zip::File.open(zip_path, Zip::File::CREATE) do |zip_file|
-
       groupings.each do |grouping|
         ## retrieve the submitted files
         submission = grouping.current_submission_used
@@ -542,12 +603,11 @@ class SubmissionsController < ApplicationController
         zip_file.mkdir(sub_folder) unless zip_file.find_entry(sub_folder)
 
         files.each do |file|
-
           ## retrieve the file and print an error on redirect back if there is
           begin
             file_content = file.retrieve_file
           rescue Exception => e
-            flash[:error] = e.message
+            flash_message(:error, e.message)
             redirect_to :back
             return
           end
@@ -564,6 +624,19 @@ class SubmissionsController < ApplicationController
 
     ## Send the Zip file
     send_file zip_path, disposition: 'inline', filename: zip_name
+  end
+
+  ##
+  # Check the status of collection for all groupings
+  ##
+  def check_collect_status
+    assignment = Assignment.find(params[:assignment_id])
+    groupings = Grouping.get_groupings_for_assignment(assignment,
+                                                      current_user)
+
+    ## check collection is completed for all groupings
+    all_groupings_collected = groupings.all?(&:is_collected?)
+    render json: { collect_status: all_groupings_collected }
   end
 
   ##
@@ -659,88 +732,68 @@ class SubmissionsController < ApplicationController
     end
   end
 
+  # Release or unrelease submissions
   def update_submissions
-    return unless request.post?
+    if !params.has_key?(:groupings) || params[:groupings].empty?
+      flash_now(:error, t('results.must_select_a_group'))
+      head 400
+      return
+    end
+    assignment = Assignment.find(params[:assignment_id])
+    groupings = assignment.groupings.find(params[:groupings])
+    release = params[:release_results]
+
     begin
-      assignment = Assignment.find(params[:assignment_id])
-      groupings = []
+      changed = assignment.is_peer_review? ?
+          set_pr_release_on_results(groupings, release) :
+          set_release_on_results(groupings, release)
 
-      if params[:groupings].nil?
-        unless params[:collect_section]
-          raise I18n.t('results.must_select_a_group')
-        end
-      else
-        groupings = assignment.groupings.find(params[:groupings])
-      end
-
-      log_message = ''
-      if params[:release_results]
-        changed = set_release_on_results(groupings, true)
-        log_message = 'Marks released for assignment' +
-            " '#{assignment.short_identifier}', ID: '" +
-            "#{assignment.id}' (for #{changed} groups)."
-      elsif params[:unrelease_results]
-        changed = set_release_on_results(groupings, false)
-        log_message = 'Marks unreleased for assignment ' +
-            "'#{assignment.short_identifier}', ID: '" +
-            "#{assignment.id}' (for #{changed} groups)."
-      elsif params[:collect_section]
-        if params[:section_to_collect] == ''
-          raise I18n.t('collect_submissions.must_select_a_section')
-        else
-          collected =
-              collect_submissions_for_section(params[:section_to_collect],
-                                              assignment)
-          if collected > 0
-            flash[:success] =
-                I18n.t('collect_submissions.successfully_collected',
-                       collected: collected)
-          end
-        end
-      end
-
-      unless groupings.empty?
+      if changed > 0
         assignment.update_results_stats
+
+        # These flashes don't get rendered. Find another way to display?
+        flash_now(:success, I18n.t('results.successfully_changed',
+                                 changed: changed))
+        if release
+          MarkusLogger.instance.log(
+            'Marks released for assignment' +
+            " '#{assignment.short_identifier}', ID: '" +
+            "#{assignment.id}' for #{changed} group(s).")
+        else
+          MarkusLogger.instance.log(
+            'Marks unreleased for assignment' +
+            " '#{assignment.short_identifier}', ID: '" +
+            "#{assignment.id}' for #{changed} group(s).")
+        end
       end
 
-      if changed && changed > 0
-        # These flashes don't get rendered. Find another way to display?
-        flash[:success] = I18n.t('results.successfully_changed',
-                                 changed: changed)
-        m_logger = MarkusLogger.instance
-        m_logger.log(log_message)
-      end
       head :ok
     rescue => e
-      render text: e.message, status: 400
+      flash_now(:error, e.message)
+      head 400
     end
-  end
-
-  def unrelease
-    return unless request.post?
-    if params[:groupings].nil?
-      flash[:release_results] = I18n.t('assignment.group.select_a_group')
-    else
-      params[:groupings].each do |g|
-        g.unrelease_results
-      end
-      m_logger = MarkusLogger.instance
-      assignment = Assignment.find(params[:id])
-      m_logger.log('Marks unreleased for assignment' +
-                       " '#{assignment.short_identifier}', ID: '" +
-                       "#{assignment.id}' (for #{params[:groupings].length}" +
-                       ' groups).')
-    end
-    redirect_to action: 'browse',
-                id: params[:id]
   end
 
   # See Assignment.get_simple_csv_report for details
   def download_simple_csv_report
     assignment = Assignment.find(params[:assignment_id])
-    send_data assignment.get_simple_csv_report,
+    students = Student.all
+    out_of = assignment.max_mark
+    file_out = MarkusCSV.generate(students) do |student|
+      result = [student.user_name]
+      grouping = student.accepted_grouping_for(assignment.id)
+      if grouping.nil? || !grouping.has_submission?
+        result.push('')
+      else
+        submission = grouping.current_submission_used
+        result.push(submission.get_latest_result.total_mark / out_of * 100)
+      end
+      result
+    end
+
+    send_data file_out,
               disposition: 'attachment',
-              type: 'application/vnd.ms-excel',
+              type: 'text/csv',
               filename: "#{assignment.short_identifier}_simple_report.csv"
   end
 
@@ -749,18 +802,18 @@ class SubmissionsController < ApplicationController
     assignment = Assignment.find(params[:assignment_id])
     send_data assignment.get_detailed_csv_report,
               disposition: 'attachment',
-              type: 'application/vnd.ms-excel',
+              type: 'text/csv',
               filename: "#{assignment.short_identifier}_detailed_report.csv"
   end
 
-  # See Assignment.get_svn_export_commands for details
-  def download_svn_export_commands
+  # See Assignment.get_svn_checkout_commands for details
+  def download_svn_checkout_commands
     assignment = Assignment.find(params[:assignment_id])
-    svn_commands = assignment.get_svn_export_commands
+    svn_commands = assignment.get_svn_checkout_commands
     send_data svn_commands.join("\n"),
               disposition: 'attachment',
               type: 'application/vnd.ms-excel',
-              filename: "#{assignment.short_identifier}_svn_exports.csv"
+              filename: "#{assignment.short_identifier}_svn_checkouts.csv"
   end
 
   # See Assignment.get_svn_repo_list for details
@@ -774,7 +827,7 @@ class SubmissionsController < ApplicationController
 
   # This action is called periodically from file_manager.
   def server_time
-    render partial: 'server_time'
+    render text: I18n.l(Time.zone.now, format: :long_date)
   end
 
   private

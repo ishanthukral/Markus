@@ -28,4 +28,18 @@ module ApplicationHelper
       flash.now[type].push(text)
     end
   end
+
+  def markdown(text)
+    options = { filter_html: false, hard_wrap: true,
+                link_attributes: { rel: 'nofollow', target: '_blank' },
+                space_after_headers: true, fenced_code_blocks: true }
+    extensions = { autolink: true }
+    renderer = Redcarpet::Render::HTML.new(options)
+    markdown = Redcarpet::Markdown.new(renderer, extensions)
+    return markdown.render(text).html_safe unless text.nil?
+  end
+
+  def yield_content!(content_key)
+    view_flow.content.delete(content_key)
+  end
 end

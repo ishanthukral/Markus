@@ -18,15 +18,11 @@ member.user.last_name %> <%= I18n.t("student.inviter") %></li>
 <li class="membership_status_pending">
    <span class="last_name"><%= member.user.first_name %> </span> <%= member.user.last_name %> <%= I18n.t("student.invited") %>
    <% if grouping.is_inviter?(@current_user) %>
-     <%= link_to I18n.t(:cancel), '#',
-        onclick: "
-          new Ajax.Request('" +
-             disinvite_member_assignment_path(id: @assignment.id, membership: member.id) + "');",
-
-        confirm: I18n.t("student.cancel_invitation"),
+     <%= link_to I18n.t(:cancel), disinvite_member_assignment_path(id: @assignment.id, membership: member.id),
+        method: 'POST',
         title: I18n.t("student.cancel_invitation_title"),
         class: "delete",
-        remote: true
+        data: {confirm: I18n.t("student.cancel_invitation")}
         %>
    <% end %>
 </li>

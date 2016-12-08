@@ -7,6 +7,7 @@ fr:
     password:           "Mot de passe"
     all:                "Tous"
     none:               "Aucun"
+    and:                " et "
     search:             "Recherche:"
     issues:             "GitHub liste des problèmes"
     actions:            "Actes"
@@ -95,61 +96,71 @@ fr:
 
     # app/views/assignments/
     name: "Nom "
-    filename:  "Fichier<span class='required_field'>*</span>"
+    filename:  "Fichier"
     message:  "Informations "
     remove:  "Enlever"
     download_csv_grade_report:  "Liste des étudiants et des devoirs au format CSV"
     days_and_hours_left:      "(%{days} jour(s) et %{hours} heure(s))"
+    hours_and_minutes_left:   "(%{hours} heure(s) et %{minutes} minute(s))"
     days_left:          "(%{days} jour(s) restant(s))"
-    short_identifier:   "Identifiant du projet<span class='required_field'>*</span>"
+    short_identifier:   "Identifiant du projet"
     description:        "Description "
     shortened_date:     "Date<span class='required_field'>*</span>"
     due_date:           "Date de retour "
-    iso_date_format_example:    "Format : AAAA-MM-JJ (Exemple : 2009-01-13)"
-    iso_due_date_format_example:    "Format : AAAA-MM-JJ HH:MM (Exemple : 2009-01-13 17:44)"
+    remove_date:        "Enlever date"
+    deadline_grace_tokens: "Date limite en <br> utilisant tous les <br> jetons de grâce <br> restants"
+    deadline_max_penalty: "Date limite y <br> compris peine <br> maximale fin"
     create_new_assignment:      "Créer un nouveau projet"
     manage_course_work: "Gestion du cours"
-    repository_folder:  "Dossier du projet<span class='required_field'>*</span>"
+    repository_folder:  "Dossier du projet"
     incorrect_format:   "Le format est incorrect"
     marking_state:
       not_collected: "Pas récupéré"
       in_progress: "En cours"
       completed: "Terminé"
       released: "Affiché"
+      are_marked: "sont corrigés"
       remark_requested: "Réévaluation demandée"
       not_complete: "La note du groupe %{group_name} ne peut pas être publiée : l'évalutation n'est pas indiquée comme étant terminée."
       not_complete_unrelease: "La note du groupe %{group_name} ne peut pas être masquée : l'évalutation n'est pas indiquée comme étant terminée."
       no_submission: "%{group_name} n'a pas d'envoi"
-      no_result: "%{group_name} n'a pas de résultat"
       result_not_saved: "Le résultat du groupe %{group_name} n'a pas pu être sauvegardé."
     collect_submissions:
+      apply_late_penalty: "Appliquer pénalité de retard / Déduire jetons de grâce ( Laissant cette case cochée signifie la soumission ne sera pas pénalisé , indépendamment du moment de la soumission . )"
       collect_all: "Récupérer tous les envois"
+      collect: "Récupérer les envois"
+      all_available: "Tous les envois à disposition"
       collect_ta: "Récupérer tous les envois qui me sont assignés"
       disable_collect: "Récupération des envois n'est pas disponible, il y a déjà un correcteur assigné aux envois."
       could_not_collect: "Les envois du projet %{assignment_identifier} ne peuvent pas être récupérés : la date de récupération n'est pas encore passée."
       collection_job_started: "La récupération des envois pour le projet %{assignment_identifier} a débuté. Cela peut prendre du temps, mais vous avez accès aux envois dès qu'ils sont disponibles."
+      collection_job_started_for_groups: "La récupération des envois pour les groupements sélectionnés pour le projet %{assignment_identifier} a débuté. Cela peut prendre du temps, mais vous avez accès aux envois dès qu'ils sont disponibles."
+      section_collection_job_started: "La récupération des envois pour les sections %{section_names} pour le projet %{assignment_identifier} a débuté. Cela peut prendre du temps, mais vous avez accès aux envois dès qu'ils sont disponibles."
       priority_given: "Une priorité importante a été donné à cet envoi. Il va bientot être prêt."
       errors:               "Erreurs"
-      results_loss_warning: "Attention : cette action effacera vos annotations et évaluations.\n\n!Êtes-vous sûr de vouloir continuer ?"
+      results_loss_warning: "Attention : cette action effacera vos annotations et évaluations. Êtes-vous sûr de vouloir continuer ?"
       must_select_a_section: "Vous devez sélectionner une section pour récupérer les envois de ses groupes."
       could_not_find_section: "La section demandée n'a pas été trouvée."
       could_not_collect_section: "Les envois de la section %{section_name} pour le projet %{assignment_identifier} ne peuvent pas être récupérés : la date de récupération pour cette section n'est pas encore passée."
-      no_submission_for_section: "Il n'y a ancun envoi à récupérer pour la section %{section_name}."
+      could_not_collect_some: "Impossible de recueillir des soumissions pour certains groupements et projet %{assignment_identifier} - la date de collecte n'a pas été atteint pour ces groupes."
+      no_submission_for_section: "Il n'y a ancun envoi à récupérer pour les sections %{section_names}."
       successfully_collected: "Récupération de %{collected} envoi(s)."
-      marking_incomplete_warning: "Attention: Certains rendus n'ont pas été complètement évalués.\n\nÊtes-vous sûr de vouloir continuer?"
+      marking_incomplete_warning: "Attention: Cela ne fera que télécharger les envois qui ont été recuillis.\n\nÊtes-vous sûr de vouloir continuer?"
+      collection_incomplete_warning: "La récuperation des envois est en cours. Certains envois seront manquants. Désirez-vous tout de même continuer?"
+      check_collection_status_error: "Une erreur s'est produite lors de la vérification de l'état de la récuperation."
     assignment:
         hidden: "%{assignment_text} (masqué)"
         assignment: "Projet %{short_identifier}"
-        required_fields: "Champs obligatoires <span class='required_field'>*</span>"
-        short_identifier:   "Identifiant du projet<span class='required_field'>*</span>"
-        name:           "Nom du projet<span class='required_field'>*</span>"
-        due_date:           "Date de retour<span class='required_field'>*</span>"
+        required_fields: "Champs obligatoires "
+        short_identifier:   "Identifiant du projet"
+        name:           "Nom du projet"
+        due_date:           "Date de retour"
         update_success: "Projet mis à jour"
         create_success:        "Projet créé"
         error: "La règle d'envoi n'a pas pu être mise en place : #%{message}"
         not_valid_submission_rule: "%{type} n'est pas une règle d'envoi valide"
         rules:           "Règles du projet"
-        edit:           "Édition du projet :"
+        edit:           "Édition du projet: "
         required_files:  "Fichiers requis"
         submission_rules:  "Règles d'envoi"
         required_files_read:  "Fichiers requis pour le projet."
@@ -166,13 +177,15 @@ fr:
             select_a_group: "Sélectionner un groupe"
             select_a_student: "Sélectionner un(e) étudiant(e)"
             select_a_grader: "Sélectionner un correcteur"
+            select_a_criterion: "Sélectionnez au moins un critère"
+            group_submission_no_files: "Un ou plusieurs des groupes sélectionnés ne contient aucun fichier dans leur soumission. Grader pas affecté."
             select_only_one_group: "Vous ne pouvez assigner un(e) étudiant(e) qu'à un seul groupe."
             deleted: "Le groupe a été supprimé"
             work_in_groups:  "Les étudiants peuvent travailler en groupe"
             persist_group_from: "Garder les groupes et les propriétés de"
             properties:  "Propriétés du groupe"
             students_allowed_form_groups:  "Autoriser les étudiants à créer leur propre groupe."
-            limit_min:  "Limites des groupes <span class=\'assignment_info\'>(1 personne minimum) :</span> nombre minimal d'étudiants par groupe :"
+            limit_min:  "Limites des groupes (1 personne minimum) : nombre minimal d'étudiants par groupe :"
             limit_max:  "Nombre maximal d'étudiants par groupe :"
             name_autogenerated:  "Noms des groupes générés automatiquement."
         submission:
@@ -187,13 +200,44 @@ fr:
             title: "Barème"
             rubric: "Rubrique (barème pré-défini)"
             flexible: "Flexible (barème à définir par le correcteur)"
-        notice:
-            change_marking_scheme_type: "Changer le barème effacera vos critères et vos évaluations."
         allow_web_submits: "Envois via l'interface web"
+        vcs_submit: "permettre soumet à travers le contrôle de version"
         is_hidden: "Cacher le projet aux étudiants"
         display_grader_names_to_students: "Afficher le nom du correcteur aux étudiants"
         section_due_date_option:  "Si l'option date de retour par section est sélectionnée, les groupes seront restreints aux sections"
         section_due_dates_info:  "<b>Important</b> La date de retour « globale » doit être indiquée. Si une section n'a pas de date de retour spécifique, la date « globale » sera utilisée. Si certains étudiants ne font partie d'aucune section, ce sera aussi cette date « globale » qui sera utilisée. Ces étudiants ne pourront se mettre qu'avec d'autres étudiants n'appartenant pas à des sections."
+        has_peer_review: "Activer élèves-étudiants d'examen par les pairs"
+        configure_peer_review: "Configurer examen par les pairs"
+        peer_review_record_missing: "Erreur: Examen par les pairs cession manquant dans la base de données"
+        start_peer_review: "Examen par les pairs"
+        peer_review_results: "Examen par les pairs Résultats"
+        your_reviews: "Vos avis"
+        review: "Avis"
+    peer_review:
+        assign: "Attribuer examen par les pairs"
+        review: "Avis "
+        reviews: "Avis"
+        problem: "Un problème inattendu est survenue"
+        submission_nil_failure: "Les soumissions pour l'affectation d'origine doivent être collectées première"
+        random_assign_failure: "Impossible d'attribuer au hasard, trop de commentaires demandés par évaluateur / CONTRÔLER sélectionnés"
+        number_of_reviews_header: "Nombre d'avis"
+        assigned_reviewers_header: "Assigned examinateurs"
+        reviewer_group: "Groupe avis"
+        reviewee_group: "Groupe pays examin"
+        reviews_made_on_submission: "Avis faites sur votre soumission: "
+        reviewers_reviews: "Les avis de ce réviseur: "
+        view_ta_result: "Voir TA Résultat"
+        empty_list_reviewers: "Vous ne pouvez pas avoir une liste vide d'examinateurs"
+        empty_list_reviewees: "Vous ne pouvez pas avoir une liste vide de CONTRÔLER"
+        cannot_allow_reviewer_to_be_reviewee: "Un étudiant ne peut pas être un réviseur et pays examiné"
+        number_per_group: "Nombre d'examens par les pairs par groupe"
+        number_assigned_reviewers: "Numéro attribué examinateurs"
+        download:
+            assigned_reviewers_header: "Télécharger Peer Review missions"
+            assigned_reviewers_csv: "Auteur groupe groupe CSV pays examiné"
+        upload:
+            header: "Télécharger Peer Review CSV"
+            description: "Format de fichier CSV: Portugais<code>result_id,group_name</code> Objet"
     your_mark:  "Votre note : "
 
     members:            "Membres"
@@ -233,6 +277,7 @@ fr:
     grades:             "Notes"
     submissions:        "Envois"
     summaries:          "Récapitulatif"
+    peer_reviews:       "Examens par le pairs"
     rubrics:            "Rubriques"
     marking_scheme:     "Barème"
     join:               "Rejoindre"
@@ -259,6 +304,7 @@ fr:
 
     marks_released_notice:  "Les notes sont maintenant affichées. Vous ne pouvez plus les changer."
     commit_after_due_date: "Ce commit est postérieur à la date de rendu."
+    no_files_submitted: "Cette présentation n'a pas de fichiers."
     past_due_date_edit_warning:  "ATTENTION ! La date de retour que vous avez choisie est antérieure à la date actuelle."
     past_due_date_edit_result_warning: "La date du %{href} de ce groupe est postérieure à la date de retour."
     last_commit: "dernier rendu"
@@ -268,14 +314,39 @@ fr:
     #app/views/assignments/grader_index.html
     grade_assignments: "Évaluation des projets"
 
+    key_pairs:
+      title: "Les Paires de Clés"
+      key_pairs_title:         "Vos Paires de Clés"
+      time_of_upload:         "Moment du Téléchargement"
+      key_content:         "Contenu de Key"
+      new_key_pair:         "Nouvelle Paire de Clés"
+      add_key_pair:         "Ajouter une Paire de Clés"
+      remove_key:         "Retirez la clé"
+      are_you_sure:         "Êtes-vous sûr?"
+      file:         "Fichier"
+      or:         "OU"
+      copy_paste_key:         "Copiez et Collez Votre clé Publique"
+      create_key_pair:         "Créer une Paire de Clés"
+      back:         "Retourner"
+      create:
+        success: "Paire de Clés créé avec succès"
+        invalid_key: "Une Paire de Clés n'a pas été créé: Clé non valide"
+      update:
+        success: "Paire de Clés mis à jour avec succès"
+      delete:
+        success: "Paire de Clés supprimé avec succès"
+
     #app/views/resluts/marker/_marker_panes.html.erb
     marker:
       new_annot: "Nouv. annot."
       overall_comments: "Commentaire général"
+      overall_comments_success: "Commentaires généraux mis à jour avec succès."
       current_annotations: "Annotations en cours"
       across_all_submission_files: "Annnotations en cours sur tous les fichiers envoyés. Cliquer sur le numéro de ligne pour vous rendre directement au bon endroit sur le fichier."
       annot_summary: "Liste annot."
       source_code: "Code Source"
+      test_results: "Résultats de test"
+      feedback_files: "Fichiers de support"
       remark_request: "Demande de retour"
       remark_submitted_on: "Demande de retour activée"
       remark_instructions: "Instructions pour les demandes de retour"
@@ -289,11 +360,17 @@ fr:
       previous_submission:  "Envoi précédent"
       next_submission:      "Envoi suivant"
       marking_status:       "État de l'évaluation : "
+      set_to_complete:      "Réglage pour terminer"
+      revert_to_incomplete: "Revenir à incomplet"
       notes:                "Remarques (<span id=\"number_of_notes\">%{notes}</span>)"
-      include_annotations: "Ajouter les annotations : "
+      include_annotations: "Ajouter les annotations"
+      include_annotations_warning: "Attention! Annotations sur les fichiers PDF ne sont actuellement pas téléchargés."
+      select_a_test: "S'il vous plaît sélectionner un test"
       marks:
         total_mark: "Notes totales : "
         released:   "Dévoilées : "
+        release:    "Libération"
+        unrelease:  "Reprendre"
         comment: "Commentaire"
         percentage: "Pourcentage"
         invalid_mark: "Note invalide !"
@@ -339,6 +416,7 @@ fr:
     common:
       submission_file: "Fichier envoyé : "
       test_results: "Résultat des tests : "
+      feedback_files: "Fichiers de support"
       no_file_in_repository: "[Pas de fichiers dans le dépôt]"
       cant_display_image: "L'image ne peut pas être affichée. Si vous essayez d'afficher un PDF, vérifiez que l'option permettant d'afficher les PDF est activée. Vous pouvez télécharger manuellement le fichier."
       image_downloading: "Page pdf en cours de téléchargement. Veuillez patienter."
@@ -349,6 +427,7 @@ fr:
     seperate_multiple_with_commas:  "Séparer les noms d'utilisateur par des virgules."
     csv_valid_format:   "Erreur durant la lecture du fichier CSV que vous venez d'envoyer. Assurez-vous que le fichier soit bien un fichier CSV valide et que chaque ligne finisse par un retour chariot. Aucun changement effectué."
     csv_invalid_lines: "Les lignes suivantes du fichier CSV sont invalides : "
+    csv_valid_lines: "Avec succès téléchargé %{valid_line_count} entrées"
     csv_upload_user_duplicate: "Nom d'utilisateur déjà inscrit (conflit) : %{user_name}"
     collect_and_grade_overwrite_warning:  "Récupérer et noter cette révision effacera les précédentes récupération et évaluations de ce groupe sur ce projet. Êtes-vous sûr de vouloir faire cela ?"
     uncommitted_changes_warning: "Les changements n'ont pas encore été enregistrés. Êtes-vous sûr de vouloir continuer ?"
@@ -359,25 +438,18 @@ fr:
     still_working_warning: "Il y a des travaux non terminés. Ils pourraient ne pas être sauvegardés si vous quittez maintenant."
 
     csv:
-      repo_collision_warning: "Attention : le répertoire '%{repo_name}' existe déjà. Le nom du groupe était '%{group_name}'."
+      repo_collision_warning:  "Attention : le répertoire '%{repo_name}' existe déjà. Le nom du groupe était '%{group_name}'."
       line_nr_csv_file_prefix: "ligne %{line_number} du fichier CSV :"
-      group_to_grader: "Vous devez envoyer un fichier CSV pour attribuer des correcteurs aux groupes."
-      student_to_grader: "Vous devez envoyer un fichier CSV pour attribuer des correcteurs aux étudiants."
-      invalid_csv: "Le format du fichier CSV n'a pas été reconnu"
+      group_to_grader:         "Vous devez envoyer un fichier CSV pour attribuer des correcteurs aux groupes."
+      student_to_grader:       "Vous devez envoyer un fichier CSV pour attribuer des correcteurs aux étudiants."
+      invalid_csv:             "Le format du fichier CSV n'a pas été reconnu"
+      no_assignment:           "L'affectation que vous essayez de créer des critères pour n'existe pas encore"
+      invalid_row:
+              duplicate_entry: "Double entrée"
+              invalid_format:  "Invalid format de ligne"
       upload:
         malformed_csv: "Le fichier sélectionné a été mal formé. Se il vous plaît vérifier que le fichier est conforme aux spécifications Markus."
         non_text_file_with_csv_extension: "Le fichier sélectionné ne est pas un fichier csv (même si elle peut avoir une extension .csv)."
-
-    pagination:
-      first: "≪ Première"
-      prev: "< Précédente"
-      next: "Suivante >"
-      last: "Dernière ≫"
-      per_page: "par page"
-      jump_to: "Aller à la page : "
-      show: "Afficher"
-      of:   "%{low} – %{high} sur %{total}"
-      select: "Sélectionner : "
 
     selects:
       all_on_page: "Les %{page_items} éléments de cette page sont séléctionnés."
@@ -390,18 +462,26 @@ fr:
       find_by_revision_timestamp: "Par date de révision"
       find_by_revision_number:    "Par numéro de révision"
       viewing_revision:           "Révision : #<span id=\"current_revision_number_display\">%{revision_number}</span>"
+      currently_collected:  "Version recueillies:"
+      no_rev_before_deadline:   "Aucune révision soumise avant la date limite"
       current_path:         "Chemin actuel : "
-      download_all_files:  "Télécharger tous les fichiers"
+      download_all_files:   "Télécharger tous les fichiers"
       root:                 "[racine]"
       collect_and_grab:     "Récupérer et évaluer cette révision"
       could_not_collect:    "N'a pas pu récupérer cette révision pour le groupe %{group_name}. — La date de de récupération n'a pas encore été atteinte."
       release_marks:        "Montrer les notes"
       unrelease_marks:      "Cacher les notes"
+      release_prs:          "Examens par les pairs de sortie"
+      unrelease_prs:        "Un libération examens par les pairs"
+      run_tests:            "UPDATE ME"
       group_name:           "Nom du groupe"
+      reviewer_name:        "Critique"
+      reviewee_name:        "Pays examiné"
       repository:           "Répertoire"
       repository_name:      "Répertoire : %{repository}"
       commit_date:          "Date d'envoi (commit)"
       marking_state:        "Affichage de la note"
+      review_state:         "Avis Etat"
       grace_credits_used:   "Utilisation des \"grace credits\""
       final_grade:          "Note finale"
       class_average:        "Moyenne : %{results_average}"
@@ -410,14 +490,17 @@ fr:
       show_partial:         "Partiellement notés"
       show_complete:        "Terminés"
       show_released:        "Notes affichées"
+      show_remark_request:  "Remarques"
       show_assigned_to_me:  "Montrer les groupes qui me sont assignés"
       grading_can_begin:    "L'évaluation peut commencer"
       grading_can_begin_after: "L'évaluation commencera à partir du %{time}"
+      grading_can_begin_for_sections:    "L'évaluation peut commencer pour les sections: %{sections}"
+      grading_can_begin_after_for_sections: "L'évaluation commencera à partir du %{time} pour les sections: %{sections}"
       submissions:	    "Soumissions: %{short_identifier}"
       csv_report:           "Rapport CSV"
-      detailled_csv_report: "Rappost CSV détaillé"
+      detailed_csv_report: "Rappost CSV détaillé"
       subversion_repo_list: "Liste des dépôts Subversion"
-      subversion_export_file: "Commandes SVN pour exporter les projets"
+      subversion_checkout_file: "Commandes SVN pour extraire les projets"
       errors:               "Erreurs"
       filter:               "Filtres :"
       show:                 "Montrer"
@@ -427,13 +510,18 @@ fr:
       revised_by:           "Révision par"
       replace:              "Remplace"
       delete:               "Supprimer"
-      error_collecting:     "Il y avait des erreurs en ramassant les submissions."
+      error_collecting:     "Il y avait des erreurs en ramassant les soumissions."
       section:              "Section"
       collect_work_for_section: "Récupérer les envois pour la section :"
       download_groupings_files: "Télécharger tous les envois"
       sections:             "Section :"
+      sections:
+        all:                "Tous les Sections"
       revision_history:     "%{num} : "
       search_submissions:   "Rechercher Soumissions"
+      how_many_marked:      "%{num_marked}/%{num_assigned} soumissions sont corrigés"
+      how_many_marked_short: "%{num_marked}/%{num_assigned} corrigés"
+      average_annotations:  "%{average_annotations} annotations par soumission marquée"
 
     summaries_index:
       group_name:           "Nom du groupe"
@@ -450,6 +538,13 @@ fr:
       sections:             "Section :"
       search_summaries:     "Rechercher Résumés"
 
+    course_summaries_index:
+      page_title:     "Sommaire"
+      user_name:      "Nom d'utilisateur"
+      first_name:     "Prénom"
+      last_name:      "Nom De Famille"
+      ngr:            "Aucune note reçue"
+
     grade_entry_forms:
       blank_field: "doit être rempli(e)"
       invalid_name: "est déjà utilisé"
@@ -457,13 +552,12 @@ fr:
       invalid_column_out_of: "peut seulement être un nombre supérieur à 0"
       invalid_identifier: "n'est pas disponible" #Pour satisfaire les tests unitaires
       invalid_grade: "peut seulement être supérieur ou égal à 0"
-      specify_columns: "Référence des évaluations et notes maximales : "
-      column: "Colonne<span class='required_field'>*</span>"
+      column: "Colonne"
       column_name: "Nom"
       column_out_of: "sur"
       add_column: "Ajouter une colonne"
       bonus_column: "Note Bonus"
-      remove_column: "Supprimer : "
+      remove_column: "Supprimer"
       toggle_column: "cacher/montrer"
       properties: "Propriétés de la feuille de note"
       required_fields: "Champs obligatoires <span class='required_field'>*</span>"
@@ -489,7 +583,7 @@ fr:
         no_mark: "NC"
         marking_state: "Affichage de la note aux étudiants"
       students:
-        title: "Vos feuilles de notes"
+        title: "Vos marques de feuilles de calcul"
         no_results: "Il n'y a pas encore de résultats pour cette feuille de notes."
         detailed_marks_message: "Les notes détaillées sont disponibles."
       csv:
@@ -508,12 +602,15 @@ fr:
                              <code>\"\",q1_name,q2_name,q3_name</code><br>
                              <code>\"\",q1_out_of,q2_out_of,q3_out_of</code><br>
                              <code>user_name,grade_for_q1,grade_for_q2,grade_for_q3</code>"
+      is_hidden: "Masquer Spreadsheet"
 
     no_grade_entry_forms_message: "Il n'y a pas de feuille de notes pour le moment."
     current_grade_entry_forms_title: "Feuilles de notes existantes"
     spreadsheet_item: "Feuille de notes"
     spreadsheet_date: "Date"
     mark_message: "Votre note : "
+
+    student_course_summary: "Vos marques de terme"
 
     student_interface_assignments: "Vos projets"
 
@@ -590,20 +687,24 @@ fr:
       csv:
         could_not_find_source: "Le projet source pour la copie des groupes n'a pas été trouvé."
         could_not_find_target: "Le projet cible pour la copie des groupes n'a pas été trouvé."
+      add_all_groups: "Ajouter tous les groupes"
+      creating_groups_for_all_students: "Création de groupes pour tous les élèves."
 
     results:
       title:  "Projet %{assignment_name} : %{group_name}"
+      review_title: "Avis %{assignment_name} : %{group_name}"
       results_name:  "Résultats"
       successfully_changed: "Les %{changed} résultats ont été mis à jour."
       must_select_a_group:  "Vous devez sélectionner au moins un groupe à mettre à jour."
+      must_select_a_group_to_collect:  "Vous devez sélectionner au moins un groupe pour recueillir."
       editing_after_release_fail: "Les notes ont été dévoilées, vous ne pouvez plus changer l'évaluation."
       could_not_find_file: "N'a pas pu trouver le fichier %{filename} dans le répertoire %{repository_name}"
+      results_for: "Résultats pour "
+      review_for: "Avis pour "
 
     mark:
       error:
-        save: "Erreur dans l'enregistrement de la note : "
-        validate_flexible: "La note doit être comprise entre 0 et la note maximale du critère."
-        validate_rubric: "La note doit être comprise entre 0 et 4." #TODO: Why 4?
+        validate_criteria: "La note doit être comprise entre 0 et la note maximale du critère."
 
     # Student's View
     students:
@@ -644,6 +745,7 @@ fr:
     #Sutdent's View (student)
     student:
       assignment: "Projet %{short_identifier}"
+      peer_assignment: "%{short_identifier}: Projet d'examen par les pairs"
       group_information: "Informations sur le groupe"
       group_not_valid: "Votre groupe n'est pas valide. Vous ne pouvez rien envoyer pour le moment."
       overview: "Vue d'ensemble"
@@ -651,6 +753,8 @@ fr:
       files: "Fichiers"
       missing_required_files: "<span class=\"info_number\">%{missing_files}</span><span class=\"info %{style_class}\"> fichier(s) requis sont manquants</span>"
       no_submission_yet: "Vous n'avez encore rien envoyé"
+      no_peer_submission_yet: "Vous avez aucune observation à révision."
+      no_reviews: "Personne ne vous a encore de commentaires."
       no_group_yet: "Vous ne faites pas encore partie d'un groupe"
       grace_date_passed: "et la période de grâce pour ce projet est terminée"
       not_allowed_to_form_group: "Vous n'êtes pas autorisé à former vous-même des groupes pour ce projet.
@@ -663,9 +767,14 @@ fr:
       form_group: "Les groupes doivent être composés de <strong>%{group_min}</strong> à <strong>%{group_max}</strong> étudiants."
       decline_invitation2: "Êtes-vous sûr de vouloir décliner l'invitation ?"
       your_group: "Votre groupe"
+      group_options: "Options du groupe"
       modification_limited: "Pour le moment, les modifications sur le groupe sont très limitées.
             La date de retour et la période de grâce (s'il y en avait une) sont toutes les deux passées."
       invite_more_students: " Ce groupe n'est pas valide : vous devez inviter plus d'étudiants."
+      working_alone: "Vous avez demandé à travailler seul sur cette mission. Si vous changez d'avis et souhaitez former ou rejoindre un groupe, d'abord supprimer votre groupe."
+      may_not_add_more: "Vous ne pouvez pas ajouter plus de personnes à votre groupe en ce moment."
+      may_not_modify: "Vous ne pouvez pas modifier votre groupe pour le moment."
+      group_not_deletable: "Vous devez contacter votre formateur de supprimer le groupe."
       url_group_repository: "L'adresse du répertoire de votre groupe"
       group_properties: "Propriétés du groupe"
       students_can_form_groups: "Les étudiants peuvent former des groupes."
@@ -675,7 +784,7 @@ fr:
       invite: "Inviter"
       please_wait: "Merci de patienter…"
       work_alone: "Travailleur seul"
-      confirm_delete_group: "Êtes-vous sûr de vouloir supprimer votre groupe ?"
+      confirm_delete_group: "AVERTISSEMENT : Vous perdrez l'accès à vos dossiers présentés après la suppression de votre groupe . Assurez-vous que vous avez une copie locale de vos fichiers avant de cliquer sur OK ."
       delete_your_group: "Suppression du groupe"
       disinvite_member: "Êtes-vous sûr de vouloir annuler l'invitation de cet utilisateur ?"
       member_disinvited: "Ce membre ne fait plus partie du groupe"
@@ -686,6 +795,7 @@ fr:
       cancel_invitation_title: "Annuler l'invitation"
       section_groups_only: "Vous ne pouvez inviter que des étudiants de votre section"
       submission:
+        search_files: "Rechercher les fichiers"
         file_manager: "%{short_identifier} : Gestionnaire de fichiers"
         current_path: "Chemin courant : "
         conflicts: "Conflits"
@@ -707,6 +817,7 @@ fr:
         # DO NOT change 'file_name' and 'new_file_name' in the following message.
         # See app/views/submissions/_file_manager_boot.js.erb
         replace_file_js_error: "\"Vous ne pouvez pas remplacer '\" + file_name + \"' par '\" + new_file_name + \"'. Vous devez remplacer le fichier par un fichier ayant le même nom.\""
+        version_control_warning: "Envoi de fichiers ici annule les modifications apportées à l'aide de contrôle de version. Assurez-vous que vous avez travaillé sur les fichiers les plus récents avant de soumettre."
 
     tas:
       create:
@@ -715,6 +826,10 @@ fr:
       update:
         success: "Mise à jour de le correcteur %{user_name}"
         error: "Erreur dans la mise à jour de le correcteur"
+      delete:
+        confirm: "Êtes-vous sûr de vouloir supprimer cette niveleuse?"
+        success: "Supprimé avec succès niveleuse %{user_name}."
+        error:   "Impossible de supprimer niveleuse."
 
     #Graders' View
     graders:
@@ -730,9 +845,11 @@ fr:
       not_covered:        "Pas couvert"
       covered:            "Couvert"
       coverage:           "Couverture"
+      problem:            "Il y avait un problème..."
       search_criteria:    "Rechercher les critères"
       assign_to_criteria: "Attribuer les correcteurs aux critères"
       lines_not_processed: "Les lignes suivantes n'ont pas pu être traitées : "
+      skip_empty_submissions: "Ne pas attribuer trieurs à des groupes dont les demandes sont vides (exige que les soumissions sont collectées)"
       upload:
         select_csv_file: "Sélectionner un fichier CSV formaté comme suit : <code>user_name,last_name,first_name</code>"
         grader_same_user: "Si un correcteur avec le même nom d'utilisateur existe, ses informations seront mises à jour."
@@ -776,14 +893,6 @@ fr:
       update:
         success: "Mise à jour de l'administrateur %{user_name}"
         error: "Erreur dans la mise à jour de l'administrateur"
-
-    rubrics:
-      move_criterion:
-        error: "Erreur: impossible de déplacer cette rubric."
-
-    flexible_criteria:
-      move_criterion:
-        error: "Erreur: impossible de déplacer ce critère (flexible)."
 
     add_student:
       success: "L'étudiant(e) %{user_name} a été ajouté(e)."
@@ -906,7 +1015,7 @@ fr:
         form_description:  "Déduire automatiquement les crédits de grâce"
         add_grace_period: "Ajouter une période de grâce"
         hours:  "heures…"
-        after:  "Après<span class='required_field'>*</span>"
+        after:  "Après"
         from:  "Du"
         to:  "au"
         alert: "Vous devez activer les temps supplémentaires pour pouvoir ajouter du temps supplémentaire."
@@ -926,9 +1035,9 @@ fr:
         to: "au"
         hours: "heure(s)…"
         after: "Après"
-        every: "chaque<span class='required_field'>*</span>"
-        deduct: "déduction<span class='required_field'>*</span>"
-        for: "pour<span class='required_field'>*</span>"
+        every: "chaque"
+        deduct: "déduction"
+        for: "pour"
 
       penalty_period_submission_rule:
         name: "Règle d'envoi lors des périodes de pénalité"
@@ -941,10 +1050,10 @@ fr:
         form_description: "Activer les pénalités"
         add_penalty_period: "Ajouter une période de pénalité"
         hours:  "heures…"
-        after:  "Après<span class='required_field'>*</span>"
+        after:  "Après"
         from:  "Du"
         to:  "au"
-        deduction: "Déduction après la période de pénalité :<span class='required_field'>*</span>"
+        deduction: "Déduction après la période de pénalité"
         alert: "Vous devez activer les pénalités pour pouvoir ajouter une période de pénalité."
 
     submission_file:
@@ -955,13 +1064,18 @@ fr:
       error:
         no_access: "Pas d'accès au résultat des test avec l'id #%{test_result_id}."
       button:
-        load: "Chargement"
+        load: "Chargement des résultats"
       no_files_available: "[Pas de résultats de tests disponibles]"
       loading_results: "Chargement des résultats…"
       running_tests: "Tests en cours…"
       build_successful: "Tests terminés. Afficher '%{logfile}' pour les détails."
       build_failed: "Tests échoués. Afficher '%{logfile}' pour voir le log."
       build_error: "Erreur inconnue avec Ant. Ant est-il correctement installé sur le serveur ? Voir '%{logfile}' pour plus d'informations."
+
+    feedback_file:
+      error:
+        no_access: "No access to feedback file with id #%{feedback_file_id}."
+      no_files_available: "[Aucun fichier de support disponible]"
 
     criteria_csv_error:
       incomplete_row: "(ligne incomplète) ne contient pas assez d'informations."
@@ -976,15 +1090,79 @@ fr:
     <p>Voici un exemple d'un champ CSV contenant des virgules et des doubles quotes :</p>
     <code>\"Code style \"\"poor\"\", but the intention was there.\"</code>"
 
-    criterion_name: "Nom du critère"
+    criteria:
+      title:          "Critères"
+      name:           "Nom du critère"
+      type:           "Type de critère."
+      max_mark: "Note maximale"
+      rubric:         "Rubrique"
+      flexible:       "Flexible"
+      checkbox:       "Checkbox"
+      marking_scheme: "Barème: %{identifier}"
+      save:           "Sauvegarder les modifications"
+      add_criterion:  "Ajouter Critère"
+      move_up:        "Monter"
+      move_down:      "Descendre"
+      download:
+        title:    "Télécharger"
+        file:     "Télécharger le fichier de Critères"
+        prompt:   "Tous les types de critères seront téléchargés au format YAML."
+        link_yml: "Télécharger critères au format YAML"
+        yml:      "Télécharger YML"
+      upload:
+        yml:             "Envoyer YML"
+        yml_title:       "Envoyer le fichier XML"
+        yml_prompt:      "Choisissez un fichier YML à envoyer"
+        success:         "Le fichier contenant le barème a bien été envoyé : %{num_loaded}."
+        error:
+          invalid_format: "Les critères suivants a un format non valide:"
+          names_taken:    "Les noms des critères suivants sont déjà prises:"
+        empty_error:     "Aucun critère n'a été trouvé dans le fichier fourni."
+        syntax_error:    "Il y a une erreur dans le fichier que vous avez téléchargé: %{error}"
+        format_yml_html: "
+          <ul>
+            <li><p>Le fichier doit avoir le format suivant pour un critère rubrique: <br>
+              <code>criterion_name:<br>
+                &nbsp;&nbsp;max_mark: max_mark<br>
+                &nbsp;&nbsp;level_0:<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;name: level_name<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;description: level_description<br>
+                &nbsp;&nbsp;level_1:<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;[...]<br>
+                &nbsp;&nbsp;ta_visible: true<br>
+                &nbsp;&nbsp;peer_visible: false<br></code>
+                <p>Les options de visibilité sont en option.</p>
+            </p></li>
+            <li><p>Ci-dessous un critère souple:</p>
+              <code>criterion_name:<br>
+                &nbsp;&nbsp;type: flexible<br>
+                &nbsp;&nbsp;max_mark: max_mark<br>
+                &nbsp;&nbsp;description: description<br>
+                &nbsp;&nbsp;ta_visible: true<br>
+                &nbsp;&nbsp;peer_visible: false<br></code>
+              <p>La description et la visibilité options sont facultatives.</p></li>
+            <li><p>Pour un critère de case à cocher et ce qui suit:</p>
+              <code>criterion_name:<br>
+              &nbsp;&nbsp;type: checkbox<br>
+              &nbsp;&nbsp;max_mark: max_mark<br>
+              &nbsp;&nbsp;description: description<br>
+              &nbsp;&nbsp;ta_visible: true<br>
+              &nbsp;&nbsp;peer_visible: false<br></code>
+            <p>La description et la visibilité options sont facultatives.</p></li>
+          </ul>"
+      errors:
+        messages:
+          name_taken:             "Nom du critère déjà utilisé."
+          assignment_association: "Association est pas forte avec une mission."
+          assignment_id:          "Ne peut être un nombre entier supérieur à 0."
+          input_number:           "Doit être un nombre supérieur à 0.0."
+      ta_visible:       "Rendre visible aux assistants d'enseignement"
+      peer_visible:     "Rendre visible à leurs auteurs pairs"
+      visibility_error: "Sélectionnez au moins une case dans la section de visibilité"
 
     flexible_criteria:
-      criteria_management: "Édition du barème pour le projet %{identifier}"
-      save: "Sauvegarder"
-      move_up: "Monter"
-      move_down: "Descendre"
+      title: "Critères souples"
       name: "Nom du critère"
-      max: "Note maximale"
       description: "Description"
       description_hint: "Vous avez la possibilité d'utiliser des tags HTML simples dans ce champ. Pour un aperçu, sauvegardez."
       download:
@@ -1001,16 +1179,34 @@ fr:
         <p>La description est facultative. NB : Si aucune description n'est présente, la seconde virgule ne doit
         pas apparaître.</p>"
         success: "Le fichier contenant le barème (flexible) a bien été envoyé : %{nb_updates} mise(s) à jour."
-      errors:
-        messages:
-          name_taken: "Nom du critère déjà utilisé."
+      move_criterion:
+        error: "Erreur: impossible de déplacer ce critère (flexible)."
+
+    checkbox_criteria:
+      title: "Critères d' Checkbox"
+      name: "Nom du critère"
+      description: "Description"
+      description_hint: "Vous avez la possibilité d'utiliser des tags HTML simples dans ce champ. Pour un aperçu, sauvegardez."
+      download:
+        title: "Télécharger le fichier de barème"
+        prompt: "Critères de Checkbox sont actuellement disponibles au format CSV"
+        link: "Télécharger critères Checkbox au format CSV"
+      upload:
+        title: "Télécharger Checkbox Critères Fichier"
+        prompt: "Choisissez un fichier CSV à envoyer"
+        format_html: "
+        <p>Le fichier devra être au format suivant : </p>
+        <ul><li>un critère par ligne.</li><li>chaque ligne devra être terminée par un retour chariot.</li></ul>
+        <code>criteria_name,max_value,description</code>
+        <p>La description est facultative. NB : Si aucune description n'est présente, la seconde virgule ne doit
+        pas apparaître.</p>"
+        success: "critères de Checkbox téléchargés avec succès: %{nb_updates} mise à jour."
+      move_criterion:
+        error: "Impossible de déplacer les critères de case à cocher."
 
     rubric_criteria:
-      criteria_management: "Édition du barème pour le projet %{identifier}"
-      save: "Sauvegarder"
+      title: "Critères rubrique"
       name: "Nom du critère"
-      move_up: "Monter"
-      move_down: "Descendre"
       level:
         levels: "Niveaux"
         level_index: "Niveau %{index}"
@@ -1022,11 +1218,7 @@ fr:
       upload:
         csv:       "Envoyer CSV"
         csv_title: "Envoyer un fichier de barème (rubrique) CSV"
-        yml:       "Envoyer YML"
-        yml_title: "Envoyer un fichier de barème (rubrique) YML"
         csv_prompt: "Choisissez un fichier CSV à envoyer"
-        yml_prompt: "Choisissez un fichier YML à envoyer"
-        success: "Le fichier contenant le barème (rubrique) a bien été envoyé : %{nb_updates} mise(s) à jour."
         format_csv_html: "
         <p>Le fichier devra être au format suivant : </p>
         <ul><li>un critère par ligne.</li><li>chaque ligne devra être terminée par un retour chariot.</li></ul>
@@ -1034,17 +1226,6 @@ fr:
         <p>où <em>level_names</em> doit contenir le nom de chaque niveau (séparé par des virgules (,)<br>
         et <em>level_descriptions</em> doi contenir la description de chaque niveau (optionnel,
         séparé aussi par les virgules)."
-        format_yml_html: "
-          <p>Le fichier devra être au format suivant : br>
-              <code>criterion_name:<br>
-                    &nbsp;&nbsp;weight: weight<br>
-                    &nbsp;&nbsp;level_0:<br>
-                    &nbsp;&nbsp;&nbsp;&nbsp;name: level_name<br>
-                    &nbsp;&nbsp;&nbsp;&nbsp;description: level_description<br>
-                    &nbsp;&nbsp;level_1:<br>
-                    &nbsp;&nbsp;&nbsp;&nbsp;[...]</code>
-          </p>"
-      error_total: "total weight must be positive"
       defaults:
         level_0: "Très insuffisant"
         level_1: "Insuffisant"
@@ -1056,17 +1237,24 @@ fr:
         description_2: "Ce critère a été partiellement compris."
         description_3: "Ce critère a été compris."
         description_4: "Ce critère a été parfaitement compris."
-      errors:
-        messages:
-          name_taken: "Nom du critère déjà utilisé."
+      move_criterion:
+        error: "Erreur: impossible de déplacer cette rubric."
 
 
     summary_table:
       title: "Titre"
-      max_value: "Valeur maximale"
       grade: "Note intermédiaire"
-      x_mark: "x Note"
-      weight: "Coefficient"
+
+    course_summaries:
+      title: "Sommaire"
+
+    marking_schemes:
+      title: "Marquage Barème"
+      name: "Nom"
+      add_new: "Ajouter Nouveau Marquage Barème"
+      edit: "Modifier Barème de Notation"
+      weight_label: "Poids Pour Les "
+      table_modify_column: "Modifier"
 
     notes:
         note_on: "%{user_name} sur <b>%{display_for}</b>"
@@ -1105,32 +1293,37 @@ fr:
         update:
             success: "Remarque mise à jour."
 
-    add_criterion:                "Ajouter un critère"
     criteria_edit_total_mark:     "Ce critère sera noté sur %{criterion_total_mark}."
     criterion_saved_success:   "Le critète a été sauvegardé."
     criterion_deleted_success:  "Le critère et toutes les notes associées ont été supprimés."
-    criteria:           "Critères"
     criterion:          "Critère"
     total_mark:         "Note totale"
-    weight:             "Coefficient"
+    visibility:         "Visibilité"
     editing_criteria:   "Édition des critères"
     ordering_criteria:  "Ordonner les critères"
+    modifying_visibility: "Visibilité Modification"
     remove_criteria_title:  "Supprimer ce critère"
     remove_criteria_message:  "Êtes-vous sûr de vouloir supprimer ce critère ?"
+    help_editing_criteria_message: "
+      Sélectionner un critère sur la gauche pour l'éditer. Changements pour les
+      différents critères peuvent être effectués comme suit:"
     help_editing_rubric_criteria_message: "
-      Sélectionner un critère sur la gauche pour l'éditer. La description du
-      critère, son nom et la note maximale peuvent être changés. Le coefficent
-      peut aussi être changé. Pour mettre un coefficient décimal, il
-      suffit d'entrer un nombre décimal dans le champ prévu.
-      Les niveaux des critères ne peuvent pas être changés. Cependant, si
-      aucune description n'est indiquée pour un niveau, il ne sera pas utilisé."
+      Les noms des critères, en-têtes de niveau, les descriptions et la visibilité
+      peuvent être modifiés. Le poids qui correspond à la note maximale indiquée
+      pour chaque critère peut également être modifié. Le coefficent peut aussi
+      être changé. Pour mettre un coefficient décimal, il suffit d'entrer un nombre
+      décimal dans le champ prévu. Les niveaux des critères ne peuvent pas être
+      changés. Cependant, si aucune description n'est indiquée pour un niveau, il
+      ne sera pas utilisé."
     help_ordering_criteria_message: "
   Les correcteurs verront les critères dans l'ordre où ils sont affichés sur la colonne à gauche.
   Pour changer l'ordre, glissez-déposez les critères à votre convenance
   dans la liste."
+    help_modifying_visibility_message: "Les icônes sur la colonne de droite sous la visibilité représentent ce qui suit:"
+    help_ta_visibility_message: "Assistants d'enseignement seront en mesure de voir le critère."
+    help_peer_visibility_message: "Les examinateurs seront en mesure de voir le critère."
     help_editing_flexible_criteria_message: "
-    Sélectionner un critère sur la gauche pour l'éditer. Les nom des critères, leurs descriptions
-    et les notes maximales peuvent être modifiés."
+    Les nom des critères, leurs descriptions, les notes maximales et visibilité peuvent être modifiés."
     past_due_date_warning: "La date de retour de ce projet est passée."
     past_due_date_notice: "La date de retour de ce projet est passée pour : "
 
@@ -1171,6 +1364,12 @@ fr:
         js_date_time:     "dddd D MMMM YYYY HH:mm"
         js_date:          "dddd D MMMM YYYY"
 
+        old_date:             "yy-dd-mm"
+        js_old_date:          "YYYY-DD-MM HH:mm"
+        js_old_date:          "YYYY-DD-MM"
+        date_placeholder:     "AAAA-JJ-MM"
+        datetime_placeholder: "AAAA-JJ-MM HH:MM"
+
       day_names: [dimanche, lundi, mardi, mercredi, jeudi, vendredi, samedi]
       abbr_day_names: [dim, lun, mar, mer, jeu, ven, sam]
       month_names: [~, janvier, février, mars, avril, mai, juin, juillet, août, septembre, octobre, novembre, décembre]
@@ -1209,10 +1408,17 @@ fr:
 
     #app/views/assignments/_read.html.erb
     no_grader_assigned: "Correcteur par défaut : Enseignant chargé du cours."
-
     locale_not_available: "La traduction %{locale} n'est pas disponible"
     external_authentication_not_supported: "L'authentification externe n'est pas supportée sur votre plateforme"
     account_disabled: "Ce compte a été désactivé"
+    lateness_penalty: "Pénalité Retard"
+    grace_period: "Délai de Grâce"
+    penalty_decay: "Pénalité Pourriture"
+    penalty_period: "Période de Pénalitéd"
+    additional_information: "Informations Complémentaires"
+    penalty_decay_message_first: "Une déduction de %{deduction}% sera appliqué toutes les %{interval} heures jusqu'à %{hours} heures après la cession est due"
+    penalty_decay_message_other: "Par la suite, une retenue de %{deduction}% sera appliquée toutes les %{interval} heures jusqu'à un maximum de %{hours} heures"
+    penalty_period_message: "Après %{hours} heures après la date d'échéance, votre note sera réduit de %{deduction}%"
 
     #app/views/main/_assignment_info_summary.erb
     percentage:                "%{percentage} %"
@@ -1227,11 +1433,17 @@ fr:
     outstanding_remark_requests: "%{request_count} demandes de remarque restantes."
 
     #app/views/main/_grader_summary.erb
-    grader_distribution:       "Correcteurs assignés :"
+    grader_distribution:       "Correcteurs assignés"
     assign_graders:            "Attribuer Correcteurs"
 
     #app/views/main/_grade_distribution_graph.html.erb
     grade_distribution:        "Répartition des notes"
+
+    #app/views/job_messages/_job_poller.js.erb
+    job_poller:
+      processing_message: "Processus en cours d`éxécution:"
+      processing_message_finished: "Processus terminé. En rechargement..."
+      processing_message_error: "Une erreur c`est produite:"
 
     #app/helpers/submissions_helper.rb
     assign_folder_missing:      "Oh non! Affectation dossier manquant."
@@ -1243,15 +1455,48 @@ fr:
 
     #Test Framework
     automated_tests:
+      title: "Tests automatiques du code"
+      testing_disabled: "Les tests automatiques du code sont désactivés pour ce projet."
+      remove_file: "UPDATE ME"
+      upload_required:  "Envoyer<span class='required_field'>*</span>"
       automated_tests: "Tests"
-      enable_test:    "Activer les tests pour ce projet"
-      required_files_ant: "Fichiers requis par Ant"
+      test_results: "Résultat des tests"
+      expand_all: "Montrer toutes"
+      collapse_all: "Cacher toutes"
+      enable_test: "Activer les tests pour ce projet"
+      student_tests: "UPDATE ME"
+      enable_student_tests: "UPDATE ME"
+      required_test_files: "UPDATE ME"
       need_group_for_test: "Vous devez avoir un groupe pour exécuter un test"
       test: "Test"
+      script_name: "UPDATE ME"
+      test_parameters: "UPDATE ME"
       revision_used_for_test: "<span class=\"prop_label\">Révision utilisée:</span> %{revision}"
       due_date_is_passed: "Vous ne pouvez pas exécuter de test après la date de retour."
       information: "Information"
       run_tests: "Exécuter les tests."
+      test_run: "L'exécution du test"
+      tests_running: "Tests en cours. S'il vous plaît rafraîchir la page pour afficher les résultats."
+      need_one_file: "Vous devez avoir au moins un fichier envoyé pour exécuter un test. Si vous avez envoyé un fichier et vous voulez exécuter un test, veuillez cliquer sur \"Récuperer et préparer test\"."
+      need_submission: "Les soumissions doivent être recueillies avant que les tests sont exécutés. Tous les groupes sélectionnés avaient non tests exécutés."
+      collect_and_test: "Récupérer et préparer test"
+      date_run: "Lancement des tests le :"
+      revision_used: "Révision utilisée :"
+      test_name: "Nom du test :"
+      completion_status: "Statut du test :"
+      marks_earned: "Points gagnés :"
+      input_description: "Entrée attendue :"
+      actual_output: "Sortie actuelle :"
+      expected_output: "Sortie attendue :"
+      add_test_script_file_link: "UPDATE ME"
+      add_test_support_file_link: "UPDATE ME"
+      add_test_script_file_alert: "UPDATE ME"
+      add_test_support_file_alert: "UPDATE ME"
+      new_test_script_file: "UPDATE ME"
+      new_test_support_file: "UPDATE ME"
+      assignment_test_script_files: "UPDATE ME"
+      assignment_test_support_files: "UPDATE ME"
+      replace: "UPDATE ME"
       need_one_file: "Vous devez avoir au moins un fichier envoyé pour exécuter un test.<br>
                       Si vous avez envoyé un fichier et vous voulez exécuter un test, veuillez cliquer sur \"Récuperer et préparer test\"."
       collect_and_test: "Récupérer et préparer test"
@@ -1270,17 +1515,58 @@ fr:
       replace: "Remplacer"
       filename_exists: "a déjà été pris"
       duplicate_filename: "Attempted to upload the following filename more than once: "
-      invalid_buildxml: "Le fichier Ant build.xml doit obligatoirement être nommé build.xml"
-      invalid_buildproperties: "Le fcihier Ant build.properties doit obligatoirement être nommé build.properties"
-      invalid_filename: "Les fichiers de test et les bibliothèques ne peuvent être appelées build.xml et build.properties"
-      missing_tokens: "Aucun jeton trouvé pour cet(te) étudiant(e) et pour ce projet"
       dir_not_exist: "Le dossier %{dir} requis par Ant n'existe pas."
+      marks_obtained: "<span class=\"prop_label\">UPDATE ME:</span> %{marking}"
+      download_wrong_place_or_unreadable: "UPDATE ME"
+      download_not_in_db: "UPDATE ME"
+      script_option:
+        run_settings: "UPDATE ME"
+        display_settings: "UPDATE ME"
+        description: "UPDATE ME"
+        update_description: "UPDATE ME"
+        seq_num: "UPDATE ME"
+        max_marks: "UPDATE ME"
+        run_by_instructors: "UPDATE ME"
+        run_by_students: "UPDATE ME"
+        halts_testing: "UPDATE ME"
+        display_description: "UPDATE ME"
+        display_run_status: "UPDATE ME"
+        display_marks_earned: "UPDATE ME"
+        display_input: "UPDATE ME"
+        display_expected_output: "UPDATE ME"
+        display_actual_output: "UPDATE ME"
+        display_option:
+           do_not_display: "UPDATE ME do not display"
+           display_after_submission: "UPDATE ME display after submission"
+           display_after_collection: "UPDATE ME display after collection"
       token:
-        tokens_form: "Jetons disponibles par groupe"
+        tokens_form: "Jetons disponibles par groupe par jour"
         tokens_per_day: "<span class=\"prop_label\">Jetons par jour :</span> %{tokens}"
         tokens_not_given_yet: "<span class=\"prop_label\">Jetons disponibles :</span> jetons pas encore donnés"
         tokens_no_more_available: "<span class=\"prop_label\">Jetons disponibles:</span >pas de jetons disponibles"
         tokens_available: "<span class=\"prop_label\">Jetons disponibles:</span> %{tokens}"
+        unlimited_tokens: "<span class=\"prop_label\">Jetons disponibles :</span> ∞"
+        unlimited: "infinis"
+      test_results_table:
+        test_name: "Nom du Test"
+        input: "Contribution"
+        output: "Sortie"
+        expected: "Attendu"
+        marks_earned: "Marques Gagnés"
+        status: "Statut"
+        passed: "Passé"
+        failed: "Échoué"
+      error:
+        no_test_server_user: "UPDATE ME"
+        not_belong_to_group: "UPDATE ME"
+        no_tokens: "Aucun jeton trouvé pour cet(te) étudiant(e) et pour ce projet"
+        no_test_files: "UPDATE ME"
+      test_result:
+        all_tests: "UPDATE ME"
+        no_source_files: "UPDATE ME"
+        no_server_connection: "UPDATE ME"
+        bad_results: "UPDATE ME"
+        no_tests: "UPDATE ME"
 
 #Missing Activerecord Translations for french
     datetime:

@@ -23,7 +23,7 @@
   function update_cell(cell, value) {
     // If the total marks cell exists, change it's value to the one supplied
     if (document.getElementById(cell)) {
-      document.getElementById(cell).value = value;
+      document.getElementById(cell).innerHTML = value;
       var e = new MouseEvent('click', {
         'view': window,
         'bubbles': true,
@@ -36,13 +36,17 @@
 
   var GradeBoxTotal = React.createClass({
     handleChange: function() {
-      this.props.value = parseInt(event.target.value, 10);
+      this.props.value = parseFloat(event.target.value, 10);
     },
     render: function() {
       return(
-        <input id={this.props.grade_id} type="text" size="4" 
-         className="grade-input" value={this.props.value} 
-         onClick={this.handleChange} readonly/>
+        <span
+        id={this.props.grade_id}
+        size="4"
+        className="grade-total"
+        >
+        {this.props.value}
+        </span>
         );
     }
   });
@@ -53,7 +57,7 @@
     },
     handleChange: function(event) {
       var params = {
-        'updated_grade':       parseInt(event.target.value),
+        'updated_grade':       parseFloat(event.target.value),
         'student_id':          this.props.student_id,
         'grade_entry_item_id': this.props.grade_entry_column,
         'authenticity_token':  AUTH_TOKEN
@@ -64,13 +68,29 @@
         type: 'POST',
         dataType: 'script',
       });
-      this.props.value = parseInt(event.target.value, 10);
+      this.props.value = parseFloat(event.target.value);
     },
+
+    // TODO: Make this nicer by not using raw Javascript and jQuery
+    handleKeyPress: function(event) {
+      if (event.key === 'Enter') {
+        var input = this.getDOMNode();
+        var td = input.parentNode;
+        var tr = td.parentNode;
+        var tdIndex = jQuery(tr).children().index(td);
+        if (tr.nextSibling !== null) {
+          var nextInput = tr.nextSibling.childNodes[tdIndex].firstChild;
+          jQuery(nextInput).select()
+        }
+      }
+    },
+
     render: function() {
       return (
         <input id={this.props.grade_id} type="text" size="4"
           className="grade-input" defaultValue={this.props.default_value}
-          onChange={this.handleChange}/>
+          onChange={this.handleChange}
+          onKeyPress={this.handleKeyPress} />
         );
     }
   });
@@ -79,7 +99,7 @@
     getDefaultProps: function() {
       // Creates a new table with the columns defined below.
       // The first column will be the column initially sorted.
-      return {
+      var gradesTable = {
         columns: [
           {
             id: 'user_name',
@@ -98,10 +118,6 @@
             content: '<%= j raw I18n.t(:'user.first_name') %>',
             sortable: true,
             searchable: true
-          },
-          {
-            id: 'section',
-            content: '<%= j raw I18n.t(:'user.section') %>',
           }
         ],
         filters: [
@@ -112,11 +128,18 @@
             return true;
           }
         }]
+      };
+      if (<%= Section.any? %>) {
+          gradesTable['columns'].push({
+              id: 'section',
+              content: '<%= j raw I18n.t(:'user.section') %>',
+              sortable: true
+          });
       }
+      return gradesTable;
     },
     getInitialState: function() {
       return {
-        error: null,
         row_data: [],
         grade_columns:[],
         selected_students: [],
@@ -129,7 +152,7 @@
       this.refresh();
     },
     refresh: function() {
-     document.getElementById('working').style.display = '';
+      document.getElementById('working').style.display = '';
 
       // Getting additional grade entry item columns
       jQuery.ajax({
@@ -139,13 +162,6 @@
         success: function(data) {
           this.setState({
             grade_columns: data,
-            error: null
-          });
-        }.bind(this),
-        error: function(xhr, status, text) {
-          var error = text + ': ' + xhr.responseText;
-          this.setState({
-            error: error
           });
         }.bind(this),
         // Close working indicator.
@@ -161,13 +177,6 @@
         success: function(data) {
           this.setState({
             row_data: data,
-            error: null
-          });
-        }.bind(this),
-        error: function(xhr, status, text) {
-          var error = text + ': ' + xhr.responseText;
-          this.setState({
-            error: error
           });
         }.bind(this),
         // Close working indicator.
@@ -177,6 +186,23 @@
       });
     },
     render: function() {
+      // need to filter for each section
+      var sections = <%= raw @sections.to_json %>;
+      if (sections.length > 0) {
+        var section_filters = sections.map(function(section) {
+          var filter = {
+            name: section.name,
+            text: section.name,
+            func: function(group) {
+              return group.section === section.name;
+            }
+          }
+          return filter;
+        });
+        var all = '<%= I18n.t('browse_submissions.sections.all') %>';
+        section_filters.unshift({name: all, text: all, func: function(g) { return g; } });
+      }
+
       // Add grades and marking state columns to array of table columns
       var all_columns = this.props.columns.concat(this.state.grade_columns);
 
@@ -187,18 +213,22 @@
         r['user_name'] = row.user_name
         r['first_name'] = row.first_name
         r['last_name'] = row.last_name
+        r['section'] = row.section
 
         this.state.grade_columns.map(function(column){
           var column_id = column.id;
 
           if (column_id === 'marking_state'){
-            r[column_id] = <img src={row[column_id]}/>;
-          } 
+            if(row[column_id]){
+              r[column_id] = <img src={row[column_id]} alt="<%= t('marking_state.released') %>" title="<%= t('marking_state.released') %>"/>;
+            }
+          }
+
           else if (column_id === 'total_marks'){
-            r[column_id] = <GradeBoxTotal grade_id={'grade_' + row.id + '_' + column.id} 
-                           grade_entry_column={column.id} student_id={row.id} 
+            r[column_id] = <GradeBoxTotal grade_id={'grade_' + row.id + '_' + column.id}
+                           grade_entry_column={column.id} student_id={row.id}
                            value={row[column_id]}/>;
-          } 
+          }
           else {
             r[column_id] =
               <GradeEntryBox
@@ -214,17 +244,16 @@
       }.bind(this));
       return (
         <div>
-          <ErrorDiv error={this.state.error} />
           <GradesActionBox
             selected_students={this.state.selected_students}
-            onError={this.onError}
             refresh={this.refresh} />
           <Table data={rows}
             search_placeholder={'<%= j raw I18n.t(:'students.search_students') %>'}
             selectable={true} // True if you want checkboxed elements
-            onSelectedRowsChange={this.updateSelectedStudents}          
+            onSelectedRowsChange={this.updateSelectedStudents}
             columns={all_columns}
-            filters={null} // Optional: pass null 
+            filters={section_filters}
+            filter_type={true}
            />
         </div>
       );
@@ -236,25 +265,24 @@
       selected_students: React.PropTypes.array
     },
     releaseMarks: function() {
+      document.getElementById('working').style.display = '';
       var dataLoad = {
         release_results: true,
         filter: 'none',
         students: this.props.selected_students
       };
+
       jQuery.ajax({
         method: 'POST',
         url: 'update_grade_entry_students',
         data: dataLoad,
         success: function(data) {
           this.props.refresh();
-        }.bind(this),
-        error: function(xhr, status, text) {
-          var error = text + ': ' + xhr.responseText;
-          this.props.onError(error);
         }.bind(this)
       });
     },
     unreleaseMarks: function() {
+      document.getElementById('working').style.display = '';
       var dataLoad = {
         unrelease_results: false,
         filter: 'none',
@@ -266,10 +294,6 @@
         data: dataLoad,
         success: function(data) {
           this.props.refresh();
-        }.bind(this),
-        error: function(xhr, status, text) {
-          var error = text + ': ' + xhr.responseText;
-          this.props.onError(error);
         }.bind(this)
       });
     },
@@ -292,4 +316,3 @@
   React.renderComponent(<GradesTable />, document.getElementById('react_grades_table'));
 
 </script>
-

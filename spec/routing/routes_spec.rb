@@ -95,21 +95,6 @@ describe 'An Assignment' do
 
   # start Assignment collection route tests
   context 'collection' do
-    it 'routes GET download_csv_grades_report properly' do
-      expect(get: path + '/download_csv_grades_report').to route_to(
-        controller: ctrl,
-        action: 'download_csv_grades_report',
-        locale: 'en')
-    end
-
-    it 'routes GET update_group_properties_on_persist properly' do
-      expect(get: path + '/update_group_properties_on_persist').to route_to(
-        controller: ctrl,
-        action: 'show',
-        id: 'update_group_properties_on_persist',
-        locale: 'en')
-    end
-
     it 'routes GET delete_rejected properly' do
       expect(get: path + '/delete_rejected').to route_to(
         controller: ctrl,
@@ -142,15 +127,6 @@ describe 'An Assignment' do
         .to route_to(
           controller: ctrl,
           action: 'student_interface',
-          id: assignment.id.to_s,
-          locale: 'en')
-    end
-
-    it 'routes GET update_group_properties_on_persist properly' do
-      expect(get: path + '/' + assignment.id.to_s +
-        '/update_group_properties_on_persist').to route_to(
-          controller: ctrl,
-          action: 'update_group_properties_on_persist',
           id: assignment.id.to_s,
           locale: 'en')
     end
@@ -205,94 +181,26 @@ describe 'An Assignment' do
           id: assignment.id.to_s,
           locale: 'en')
     end
-
-    it 'routes GET render_test_result properly' do
-      expect(get: path + '/' + assignment.id.to_s + '/render_test_result')
-        .to route_to(
-          controller: ctrl,
-          action: 'render_test_result',
-          id: assignment.id.to_s,
-          locale: 'en')
-    end
   end
   # end Assignment member route tests
 
-  # start Assignment's rubrics route tests
-  context 's rubrics' do
-    let(:rubric_path) { path + '/' + assignment.id.to_s + '/rubrics' }
-    let(:rubric_ctrl) { 'rubrics' }
-
-    # start assignment rubric member route tests
-    context 'member' do
-      it 'routes DELETE destroy properly' do
-        expect(delete: rubric_path + '/1').to route_to(
-          controller: rubric_ctrl,
-          action: 'destroy',
-          id: '1',
-          assignment_id: assignment.id.to_s,
-          locale: 'en')
-      end
-    end
-    # end assignment rubric member route tests
-
-    # start assignment rubric collection route tests
+  # start assignment criteria route tests
+  context 's criteria' do
     context 'collection' do
+      let(:criteria_path) { path + '/' + assignment.id.to_s + '/criteria' }
+      let(:criteria_ctrl) { 'criteria' }
+
       it 'routes POST update_positions properly' do
-        expect(post: rubric_path + '/update_positions').to route_to(
-          controller: rubric_ctrl,
+        expect(post: criteria_path + '/update_positions').to route_to(
+          controller: criteria_ctrl,
           action: 'update_positions',
-          assignment_id: assignment.id.to_s,
-          locale: 'en')
-      end
-      it 'routes POST csv_upload properly' do
-        expect(post: rubric_path + '/csv_upload').to route_to(
-          controller: rubric_ctrl,
-          action: 'csv_upload',
-          assignment_id: assignment.id.to_s,
-          locale: 'en')
-      end
-      it 'routes POST yml_upload properly' do
-        expect(post: rubric_path + '/yml_upload').to route_to(
-          controller: rubric_ctrl,
-          action: 'yml_upload',
-          assignment_id: assignment.id.to_s,
-          locale: 'en')
-      end
-      it 'routes GET download_csv properly' do
-        expect(get: rubric_path + '/download_csv').to route_to(
-          controller: rubric_ctrl,
-          action: 'download_csv',
-          assignment_id: assignment.id.to_s,
-          locale: 'en')
-      end
-      it 'routes GET download_yml properly' do
-        expect(get: rubric_path + '/download_yml').to route_to(
-          controller: rubric_ctrl,
-          action: 'download_yml',
-          assignment_id: assignment.id.to_s,
-          locale: 'en')
-      end
-    end
-  end
-  # end Assignment's rubrics route tests
-
-  # start assignment flexible criteria route tests
-  context 's flexible_criteria' do
-    context 'collection' do
-      let(:criter_path) { path + '/' + assignment.id.to_s + '/flexible_criteria' }
-      let(:criter_ctrl) { 'flexible_criteria' }
-
-      it 'routes POST upload properly' do
-        expect(post: criter_path + '/upload').to route_to(
-          controller: criter_ctrl,
-          action: 'upload',
           assignment_id: assignment.id.to_s,
           locale: 'en')
       end
 
       it 'routes GET show id: update_positions' do
-        expect(get: criter_path + '/update_positions').to route_to(
-          controller: criter_ctrl,
+        expect(get: criteria_path + '/update_positions').to route_to(
+          controller: criteria_ctrl,
           action: 'show',
           id: 'update_positions',
           assignment_id: assignment.id.to_s,
@@ -300,24 +208,32 @@ describe 'An Assignment' do
       end
 
       it 'routes GET show id: move_criterion' do
-        expect(get: criter_path + '/move_criterion').to route_to(
-          controller: criter_ctrl,
+        expect(get: criteria_path + '/move_criterion').to route_to(
+          controller: criteria_ctrl,
           action: 'show',
           id: 'move_criterion',
           assignment_id: assignment.id.to_s,
           locale: 'en')
       end
 
-      it 'routes GET download properly' do
-        expect(get: criter_path + '/download').to route_to(
-          controller: criter_ctrl,
-          action: 'download',
+      it 'routes GET download_yml properly' do
+        expect(get: criteria_path + '/download_yml').to route_to(
+          controller: criteria_ctrl,
+          action: 'download_yml',
+          assignment_id: assignment.id.to_s,
+          locale: 'en')
+      end
+
+      it 'routes POST yml_upload properly' do
+        expect(post: criteria_path + '/upload_yml').to route_to(
+          controller: criteria_ctrl,
+          action: 'upload_yml',
           assignment_id: assignment.id.to_s,
           locale: 'en')
       end
     end
   end
-  # end assignment flexible criteria route tests
+  # end assignment criteria route tests
 
   # start assignment automated_tests resource route tests
   context 's automated_tests' do
@@ -336,7 +252,7 @@ describe 'An Assignment' do
       it 'routes POST update properly' do
         expect(post: autom_path).to route_to(
           controller: autom_ctrl,
-          action: 'update',
+          action: 'create',
           assignment_id: assignment.id.to_s,
           locale: 'en')
       end
@@ -401,16 +317,6 @@ describe 'An Assignment' do
             assignment_id: assignment.id.to_s,
             locale: 'en')
       end
-
-      it 'routes GET rename_group_dialog properly' do
-        expect(get: group_path + '/' + group.id.to_s + '/rename_group_dialog')
-          .to route_to(
-            controller: group_ctrl,
-            action: 'rename_group_dialog',
-            id: group.id.to_s,
-            assignment_id: assignment.id.to_s,
-            locale: 'en')
-      end
     end
 
     context 'collection' do
@@ -430,8 +336,8 @@ describe 'An Assignment' do
           locale: 'en')
       end
 
-      it 'routes GET use_another_assignment_groups properly' do
-        expect(get: group_path + '/use_another_assignment_groups').to route_to(
+      it 'routes POST use_another_assignment_groups properly' do
+        expect(post: group_path + '/use_another_assignment_groups').to route_to(
           controller: group_ctrl,
           action: 'use_another_assignment_groups',
           assignment_id: assignment.id.to_s,
@@ -569,14 +475,6 @@ describe 'An Assignment' do
           locale: 'en')
       end
 
-      it 'routes GET collect_all_submissions properly' do
-        expect(get: sub_path + '/collect_all_submissions').to route_to(
-          controller: sub_ctrl,
-          action: 'collect_all_submissions',
-          assignment_id: assignment.id.to_s,
-          locale: 'en')
-      end
-
       it 'routes GET download_simple_csv_report properly' do
         expect(get: sub_path + '/download_simple_csv_report').to route_to(
           controller: sub_ctrl,
@@ -593,18 +491,10 @@ describe 'An Assignment' do
           locale: 'en')
       end
 
-      it 'routes GET download_svn_export_list properly' do
-        expect(get: sub_path + '/download_svn_export_list').to route_to(
+      it 'routes GET download_svn_checkout_commands properly' do
+        expect(get: sub_path + '/download_svn_checkout_commands').to route_to(
           controller: sub_ctrl,
-          action: 'download_svn_export_list',
-          assignment_id: assignment.id.to_s,
-          locale: 'en')
-      end
-
-      it 'routes GET download_svn_export_commands properly' do
-        expect(get: sub_path + '/download_svn_export_commands').to route_to(
-          controller: sub_ctrl,
-          action: 'download_svn_export_commands',
+          action: 'download_svn_checkout_commands',
           assignment_id: assignment.id.to_s,
           locale: 'en')
       end
@@ -613,14 +503,6 @@ describe 'An Assignment' do
         expect(get: sub_path + '/download_svn_repo_list').to route_to(
           controller: sub_ctrl,
           action: 'download_svn_repo_list',
-          assignment_id: assignment.id.to_s,
-          locale: 'en')
-      end
-
-      it 'routes GET collect_ta_submissions properly' do
-        expect(get: sub_path + '/collect_ta_submissions').to route_to(
-          controller: sub_ctrl,
-          action: 'collect_ta_submissions',
           assignment_id: assignment.id.to_s,
           locale: 'en')
       end
@@ -646,14 +528,6 @@ describe 'An Assignment' do
         expect(post: sub_path + '/populate_file_manager').to route_to(
           controller: sub_ctrl,
           action: 'populate_file_manager',
-          assignment_id: assignment.id.to_s,
-          locale: 'en')
-      end
-
-      it 'routes POST update_converted_pdfs properly' do
-        expect(post: sub_path + '/update_converted_pdfs').to route_to(
-          controller: sub_ctrl,
-          action: 'update_converted_pdfs',
           assignment_id: assignment.id.to_s,
           locale: 'en')
       end
@@ -690,8 +564,8 @@ describe 'An Assignment' do
           locale: 'en')
       end
 
-      it 'routes POST server_time properly' do
-        expect(post: sub_path + '/server_time').to route_to(
+      it 'routes GET server_time properly' do
+        expect(get: sub_path + '/server_time').to route_to(
           controller: sub_ctrl,
           action: 'server_time',
           assignment_id: assignment.id.to_s,
@@ -844,8 +718,8 @@ describe 'An Assignment' do
             locale: 'en')
         end
 
-        it 'routes GET cancel_remark_request properly' do
-          expect(get: res_path + '/1/cancel_remark_request').to route_to(
+        it 'routes DELETE cancel_remark_request properly' do
+          expect(delete: res_path + '/1/cancel_remark_request').to route_to(
             controller: res_ctrl,
             action: 'cancel_remark_request',
             id: '1',
@@ -914,8 +788,8 @@ describe 'An Assignment' do
             locale: 'en')
         end
 
-        it 'routes PUT update_overall_comment properly' do
-          expect(put: res_path + '/1/update_overall_comment').to route_to(
+        it 'routes POST update_overall_comment properly' do
+          expect(post: res_path + '/1/update_overall_comment').to route_to(
             controller: res_ctrl,
             action: 'update_overall_comment',
             id: '1',
@@ -924,29 +798,18 @@ describe 'An Assignment' do
             locale: 'en')
         end
 
-        it 'routes POST update_overall_remark_comment properly' do
-          expect(post: res_path + '/1/update_overall_remark_comment')
-            .to route_to(
-              controller: res_ctrl,
-              action: 'update_overall_remark_comment',
-              id: '1',
-              assignment_id: assignment.id.to_s,
-              submission_id: submission.id.to_s,
-              locale: 'en')
-        end
-
-        it 'routes POST update_marking_state properly' do
-          expect(post: res_path + '/1/update_marking_state').to route_to(
+        it 'routes POST toggle_marking_state properly' do
+          expect(post: res_path + '/1/toggle_marking_state').to route_to(
             controller: res_ctrl,
-            action: 'update_marking_state',
+            action: 'toggle_marking_state',
             id: '1',
             assignment_id: assignment.id.to_s,
             submission_id: submission.id.to_s,
             locale: 'en')
         end
 
-        it 'routes GET update_remark_request properly' do
-          expect(get: res_path + '/1/update_remark_request').to route_to(
+        it 'routes PATCH update_remark_request properly' do
+          expect(patch: res_path + '/1/update_remark_request').to route_to(
             controller: res_ctrl,
             action: 'update_remark_request',
             id: '1',
@@ -1104,72 +967,99 @@ describe 'An Assignment' do
   # end assignment graders route tests
 
   context 'annotation_categories' do
-    let(:annot_path) do 
+    let(:annot_path) do
       path + '/' + assignment.id.to_s +
         '/annotation_categories'
     end
     let(:annot_ctrl) { 'annotation_categories' }
 
     context 'members' do
-      it 'routes GET get_annotations properly' do
-        expect(get: annot_path + '/get_annotations').to route_to(
+      let(:id) { '1' }
+      it 'routes GET properly' do
+        expect(get: annot_path + "/#{1}").to route_to(
           controller: annot_ctrl,
           action: 'show',
-          id: 'get_annotations',
+          id: id,
           assignment_id: assignment.id.to_s,
           locale: 'en')
       end
 
-      it 'routes DELETE delete_annotation_category properly' do
-        expect(delete: annot_path + '/delete_annotation_category').to route_to(
+      it 'routes DELETE properly' do
+        expect(delete: annot_path + "/#{1}").to route_to(
           controller: annot_ctrl,
           action: 'destroy',
-          id: 'delete_annotation_category',
+          id: id,
+          assignment_id: assignment.id.to_s,
+          locale: 'en')
+      end
+
+      it 'routes PUT properly' do
+        expect(put: annot_path + "/#{1}").to route_to(
+          controller: annot_ctrl,
+          action: 'update',
+          id: id,
           assignment_id: assignment.id.to_s,
           locale: 'en')
       end
 
       it 'routes DELETE delete_annotation_text properly' do
-        expect(delete: annot_path + '/delete_annotation_text').to route_to(
+        expect(delete: annot_path + "/#{id}/delete_annotation_text").to route_to(
           controller: annot_ctrl,
-          action: 'destroy',
-          id: 'delete_annotation_text',
+          action: 'delete_annotation_text',
+          id: id,
           assignment_id: assignment.id.to_s,
           locale: 'en')
       end
 
       it 'routes GET add_annotation_text properly' do
-        expect(get: annot_path + '/add_annotation_text').to route_to(
+        expect(get: annot_path + "/#{id}/add_annotation_text").to route_to(
           controller: annot_ctrl,
           action: 'add_annotation_text',
+          id: id,
           assignment_id: assignment.id.to_s,
           locale: 'en')
       end
 
       it 'routes POST add_annotation_text properly' do
-        expect(post: annot_path + '/1/add_annotation_text').to route_to(
+        expect(post: annot_path + "/#{id}/add_annotation_text").to route_to(
           controller: annot_ctrl,
           action: 'add_annotation_text',
-          id: '1',
+          id: id,
           assignment_id: assignment.id.to_s,
           locale: 'en')
       end
 
       it 'routes PUT update_annotation properly' do
-        expect(get: annot_path + '/update_annotation').to route_to(
+        expect(put: annot_path + "/#{id}/update_annotation").to route_to(
           controller: annot_ctrl,
-          action: 'show',
-          id: 'update_annotation',
+          action: 'update_annotation',
+          id: id,
           assignment_id: assignment.id.to_s,
           locale: 'en')
       end
     end
 
     context 'collection' do
-      it 'routes GET add_annotation_category properly' do
-        expect(get: annot_path + '/add_annotation_category').to route_to(
+      it 'routes GET new properly' do
+        expect(get: annot_path + '/new').to route_to(
           controller: annot_ctrl,
-          action: 'add_annotation_category',
+          action: 'new',
+          assignment_id: assignment.id.to_s,
+          locale: 'en')
+      end
+
+      it 'routes POST properly' do
+        expect(post: annot_path).to route_to(
+          controller: annot_ctrl,
+          action: 'create',
+          assignment_id: assignment.id.to_s,
+          locale: 'en')
+      end
+
+      it 'routes GET properly' do
+        expect(get: annot_path).to route_to(
+          controller: annot_ctrl,
+          action: 'index',
           assignment_id: assignment.id.to_s,
           locale: 'en')
       end
@@ -1178,14 +1068,6 @@ describe 'An Assignment' do
         expect(post: annot_path + '/csv_upload').to route_to(
           controller: annot_ctrl,
           action: 'csv_upload',
-          assignment_id: assignment.id.to_s,
-          locale: 'en')
-      end
-
-      it 'routes GET delete_annotation_category properly' do
-        expect(get: annot_path + '/delete_annotation_category').to route_to(
-          controller: annot_ctrl,
-          action: 'delete_annotation_category',
           assignment_id: assignment.id.to_s,
           locale: 'en')
       end
@@ -1202,22 +1084,6 @@ describe 'An Assignment' do
         expect(post: annot_path + '/yml_upload').to route_to(
           controller: annot_ctrl,
           action: 'yml_upload',
-          assignment_id: assignment.id.to_s,
-          locale: 'en')
-      end
-
-      it 'routes POST add_annotation_category properly' do
-        expect(post: annot_path + '/add_annotation_category').to route_to(
-          controller: annot_ctrl,
-          action: 'add_annotation_category',
-          assignment_id: assignment.id.to_s,
-          locale: 'en')
-      end
-
-      it 'routes POST update_annotation_category properly' do
-        expect(post: annot_path + '/update_annotation_category').to route_to(
-          controller: annot_ctrl,
-          action: 'update_annotation_category',
           assignment_id: assignment.id.to_s,
           locale: 'en')
       end
@@ -1272,15 +1138,6 @@ context 'grade_entry_forms' do
         .to route_to(
           controller: ctrl,
           action: 'grades',
-          id: grade_entry_form.id.to_s,
-          locale: 'en')
-    end
-
-    it 'routes GET g_table_paginate properly' do
-      expect(get: path + '/' + grade_entry_form.id.to_s + '/g_table_paginate')
-        .to route_to(
-          controller: ctrl,
-          action: 'g_table_paginate',
           id: grade_entry_form.id.to_s,
           locale: 'en')
     end
@@ -1413,14 +1270,8 @@ context 'annotation collection' do
   it 'routes PUT update_annotation properly' do
     expect(put: path + '/update_annotation').to route_to(
       controller: ctrl,
-      action: 'update_annotation',
-      locale: 'en')
-  end
-
-  it 'routes POST update_comment properly' do
-    expect(post: path + '/update_comment').to route_to(
-      controller: ctrl,
-      action: 'update_comment',
+      action: 'update',
+      id: 'update_annotation',
       locale: 'en')
   end
 

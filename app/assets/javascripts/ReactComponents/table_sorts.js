@@ -1,10 +1,7 @@
 function compare_dates(a, b) {
   function parse_date(d) {
-    var close_tag_end = d.lastIndexOf('>');
-    if (close_tag_end !== -1) {
-      return Date.parse(d.substring(close_tag_end + 1));
-    }
-    return Date.parse(d);
+    var dateElement = jQuery.parseHTML(d);
+    return Date.parse(jQuery(dateElement[0]).text());
   }
 
   return compare_numeric_values(parse_date(a), parse_date(b));
@@ -16,8 +13,14 @@ function compare_gradebox(a, b) {
 
 function compare_anchor_text(a, b) {
   function parse_anchor(a) {
-    var open_tag_end = a.indexOf('>', a.indexOf('<a'));
-    var close_tag_start = a.indexOf('</a', open_tag_end + 1);
+    var is_anchor = a.indexOf('<a') >= 0;
+    if (is_anchor) {
+      var open_tag_end = a.indexOf('>', a.indexOf('<a'));
+      var close_tag_start = a.indexOf('</a', open_tag_end + 1);
+    } else {
+      var open_tag_end = a.indexOf('>', a.indexOf('<span'));
+      var close_tag_start = a.indexOf('</span', open_tag_end + 1);
+    }
     if (open_tag_end !== -1 && close_tag_start !== -1) {
       return a.substring(open_tag_end + 1, close_tag_start);
     }

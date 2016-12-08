@@ -1,5 +1,4 @@
 <script>
-//<![CDATA[
   var invite_modal = null;
 
   function invite() {
@@ -11,7 +10,6 @@
   jQuery(document).ready(function() {
     invite_modal = new ModalMarkus('#invite_dialog');
   });
-//]]>
 </script>
 
 <div class='title_bar'>
@@ -23,6 +21,10 @@
 
 <div class='student_columns'>
   <div id='student_column_left'>
+    <div class='block'>
+      <%= render partial: 'read', locals:{ peer_review: false } %>
+    </div>
+
     <div class='block'>
       <h2><%= t('submissions') %></h2>
 
@@ -53,10 +55,6 @@
         <% end %>
       </div>
     </div>
-
-    <div class='block'>
-      <%= render partial: 'read' %>
-    </div>
   </div>
 
   <div id='student_column_right'>
@@ -64,10 +62,11 @@
       <h2><%= t('student.group_information') %></h2>
 
       <div class='block_content'>
-        <% if @grouping.nil? %>
+        <% # If student has no group, inform them
+        if @grouping.nil? %>
           <p class='notice'>
             <%= t('student.no_group_yet') %>
-            <% if @assignment.past_collection_date? %>
+            <% if @assignment.past_collection_date?(@student.section) %>
               <%= t('student.grace_date_passed') %>
             <% end %>!
           </p>
@@ -95,7 +94,7 @@
                              inviter_last_name: grouping.inviter.last_name,
                              inviter_first_name: grouping.inviter.first_name)) %>
                 </p>
-                <% grouping.student_memberships.each do |member|%>
+                <% grouping.student_memberships.includes(:user).each do |member|%>
                   <ul>
                     <%= render partial: 'assignments/member',
                                locals: { member: member,
@@ -113,16 +112,15 @@
                               id: @assignment.id,
                               grouping_id: grouping.id },
                             { class: 'button',
-                              confirm: t('student.decline_invitation') } %>
+                              data: { confirm: t('student.decline_invitation') } } %>
                 </div>
-                <div class='block_line'></div>
             <% end %>
           <% end %>
 
           <% # If students are allowed to form groups and
              # the grace period for this assignment has not yet passed,
              # render UI elements for group creation
-             if !@assignment.past_collection_date? && @assignment.student_form_groups %>
+             if !@assignment.past_collection_date?(@student.section) && @assignment.student_form_groups %>
 
             <h3><%= t('student.form_own_group') %></h3>
             <p><%= raw(t('student.form_group',
@@ -146,7 +144,7 @@
                             { action: 'creategroup',
                               id: @assignment.id },
                             { class: 'button',
-                              confirm: t('student.decline_invitation2') } %>
+                              data: { confirm: t('student.decline_invitation2') } }%>
               <% else %>
                 <%= link_to t(:create),
                             { action: 'creategroup',
@@ -157,7 +155,6 @@
           <% end %>
         <% else %>
           <%# Since the student has a group already, we display information about the group only %>
-
           <%# Check if groupname should be displayed %>
           <h3>
             <% if @assignment.group_name_displayed %>
@@ -165,21 +162,10 @@
             <% else %>
               <%= t("student.your_group") %>
             <% end %>
-            <% # If a group is valid, the current user is the inviter of the group and
-               # they are the _only_ member of this group, they should be possible to delete
-               # their group, provided there haven't been any files submitted.
-               if !@grouping.nil? && @grouping.deletable_by?(@current_user) %>
-              <%= link_to t(:delete),
-                          { action: 'deletegroup',
-                            id: @assignment.id },
-                          { confirm: t('student.confirm_delete_group'),
-                            title: t('student.delete_your_group'),
-                            class: 'delete' } %>
-            <% end %>
           </h3>
           <% # Display group properties are read only warning
              # when the due date and grace period (if any) have passed.
-             if @assignment.past_collection_date? && @assignment.student_form_groups &&
+             if @assignment.past_collection_date?(@student.section) && @assignment.student_form_groups &&
                 !@assignment.invalid_override && @assignment.group_max > 1 %>
             <p class='information'>
               <%= t('student.modification_limited') %>
@@ -224,30 +210,15 @@
 
           <%# For each member of this group, display name and status %>
           <ul>
-            <% @studentmemberships.each do |member|%>
+            <% @studentmemberships.includes(:user).each do |member|%>
               <%= render partial: 'assignments/member',
                          locals: { member: member,
                                    grouping: @grouping } %>
             <% end %>
           </ul>
 
-          <% if @grouping.inviter == @current_user &&
-                @assignment.student_form_groups &&
-                !@assignment.past_collection_date? %>
-            <%# Student not reached the group max and is not working alone %>
-            <% if @grouping.student_membership_number < @assignment.group_max &&
-                  @group.group_name != @current_user.user_name %>
-              <%= button_to_function t(:invite), 'invite(); return false;' %>
-            <%# Student has reached the group max and is not working alone %>
-            <% elsif @grouping.student_membership_number ==
-                     @assignment.group_max &&
-                     @group.group_name != @current_user.user_name %>
-              <%= button_to_function t(:invite), disabled: true %>
-            <% end %>
-          <% end %>
-
           <% # Display the URL of this group's repository if applicable
-             if @grouping.repository_external_commits_only? %>
+             if @assignment.vcs_submit %>
             <h3><%= t('student.url_group_repository') %></h3>
             <div class='sub_block'>
               <a href='<%= @grouping.group.repository_external_access_url %>'><%= @grouping.group.repository_external_access_url %></a>
@@ -255,9 +226,57 @@
           <% end %>
         <% end %>
 
+        <% unless @group.nil? %>
+          <div class='group-options'>
+            <h3><%= t('student.group_options') %></h3>
+            <% if @group.group_name == @current_user.user_name && !@assignment.past_collection_date?(@student.section) && @assignment.group_max > 1 %>
+              <p class='information'>
+                <%= t('student.working_alone') %>
+              </p>
+            <% end %>
+
+            <% # Student not reached the group max and is not working alone
+               if @grouping.inviter == @current_user &&
+                  @assignment.student_form_groups &&
+                  !@assignment.past_collection_date?(@student.section) %>
+              <% # Student has reached the group max and is not working alone
+                 if @grouping.student_membership_number < @assignment.group_max &&
+                         @group.group_name != @current_user.user_name %>
+                <div class='group-button'>
+                  <%= button_tag t(:invite), onclick: 'invite(); return false;' %>
+                </div>
+              <% elsif @grouping.student_membership_number ==
+                         @assignment.group_max &&
+                       @group.group_name != @current_user.user_name %>
+                <p class='information'><%= t('student.may_not_add_more') %></p>
+              <% end %>
+            <% else %>
+              <p class='information'><%= t('student.may_not_modify') %></p>
+            <% end %>
+
+            <% if !@grouping.nil? && @assignment.group_max > 1 &&
+                  !@assignment.past_collection_date?(@student.section) &&
+                  !@grouping.has_submission? %>
+              <% if @grouping.inviter == @current_user &&
+                    @grouping.accepted_students.size == 1 %>
+                <div class='group-button'>
+                  <%= button_to t('student.delete_group'),
+                                { action: 'deletegroup',
+                                  id: @assignment.id },
+                                method: :get,
+                                data: { confirm: t('student.confirm_delete_group') }
+                                %>
+                </div>
+              <% else %>
+                <p class='information'> <%= t('student.group_not_deletable') %> </p>
+              <% end %>
+            <% end %>
+          </div>
+        <% end %>
+
         <h3><%= t('student.group_properties') %></h3>
         <ul>
-          <% if @assignment.section_groups_only %>
+          <% if @assignment.section_groups_only && Section.any? %>
             <li><%= t('student.section_groups_only') %></li>
           <% end %>
 
@@ -275,93 +294,9 @@
           <% else %>
             <li><%= t('student.student_work_alone') %></li>
           <% end %>
-          <% if !@grouping.nil? %>
-            <li>
-              <%= raw(t('student.group_credits',
-                        available_grace_credits: @grouping.available_grace_credits)) %>
-            </li>
-          <% end %>
         </ul>
       </div>
     </div>
-
-    <%# HTML for Student Testing Interface %>
-    <%# Disabled until we get autotesting up and running. %>
-    <%# if @assignment.enable_test %>
-    <% if false %>
-    <div class='block'>
-      <h2><%= t('automated_tests.test') %></h2>
-      <% if @grouping.nil? %>
-        <div class='sub_block'>
-          <%= t('automated_tests.need_group_for_test') %>
-        </div>
-       <% else %>
-        <div class='block_content'>
-          <h3><%= t('automated_tests.information') %></h3>
-          <% if !@grouping.submissions.empty? %>
-            <div class='sub_block'>
-              <%= raw(t('automated_tests.revision_used_for_test',
-                         revision: @revision_number) ) %>
-            </div>
-          <% end %>
-
-          <div class='sub_block'>
-            <%= raw(t('automated_tests.token.tokens_per_day',
-                      tokens: @assignment.tokens_per_day)) %>
-          </div>
-
-          <div class='sub_block'>
-            <% if @token.nil? %>
-             <%= raw(t('automated_tests.token.tokens_not_given_yet')) %>
-            <% else %>
-              <% if @token.tokens == 0 %>
-                <%= raw(t('automated_tests.token.tokens_no_more_available')) %>
-              <% else %>
-                <%= raw(t('automated_tests.token.tokens_available',
-                          tokens: @token.tokens)) %>
-              <% end %>
-            <% end %>
-          </div>
-
-          <h3><%= t('automated_tests.run_tests') %></h3>
-          <% if @grouping.assignment.submission_rule.can_collect_now? %>
-            <%= t('automated_tests.due_date_is_passed') %>
-            <br>
-          <% else %>
-            <% if @result.nil? && @test_result_files.nil? %>
-              <%= t('automated_tests.need_one_file') %>
-              <br>
-           <% else %>
-              <%# Javascript for test result window %>
-              <%= render partial: 'assignments/test_result_window',
-                         formats: [:html],
-                         locals: { aid: @assignment.id } %>
-              <div id='test_results_controls'>
-                <%= render partial: 'results/common/test_selector',
-                           formats: [:html],
-                           locals: { test_result_files: @test_result_files,
-                                     result: @result } %>
-                 <br>
-              </div>
-              <br>
-            <% end %>
-            <% if @grouping.submissions.empty? %>
-              <br>
-              <%= link_to t('automated_tests.collect_and_test'),
-                          { controller: 'assignments',
-                            action: 'student_interface',
-                            id: @assignment.id,
-                            grouping_id: @grouping.id ,
-                            revision_number: @revision_number,
-                            collect: true },
-                          class: 'button' %>
-              <br>
-            <% end %>
-          <% end %>
-        <% end %>
-      </div>
-    </div>
-    <% end %>
   </div>
 </div>
 
